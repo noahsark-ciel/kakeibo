@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="家計簿">
+<meta name="theme-color" content="#ECEFF1" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14191D" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font:14px/1.5 system-ui,-apple-system,sans-serif}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<title>封筒家計簿</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one-column phone ledger. Cool blue-grey paper, charcoal ink. Envelope rows (封筒) with a red 済 hanko for paid lines; bottom tab bar. */
+:root{
+  --bg:#ECEFF1; --card:#FFFFFF; --ink:#1E272E; --sub:#5F6C77; --line:#D5DCE1;
+  --accent:#34383E; --accent-soft:#E1E6EA; --stamp:#B04A3B; --stamp-soft:#F8EAE7;
+  --warn:#A8651E; --neg:#A83A2E; --pos:#4B7A62;
+  --font-body:"Zen Kaku Gothic New","Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",system-ui,sans-serif;
+  --font-num:"DM Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --tabh:64px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14191D; --card:#1C2328; --ink:#E6EBEF; --sub:#97A3AD; --line:#2D363D;
+  --accent:#D0D8DF; --accent-soft:#25303A; --stamp:#E38A79; --stamp-soft:#3A2420;
+  --warn:#DDA563; --neg:#EE8F84; --pos:#8CC2A6; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14191D; --card:#1C2328; --ink:#E6EBEF; --sub:#97A3AD; --line:#2D363D;
+  --accent:#D0D8DF; --accent-soft:#25303A; --stamp:#E38A79; --stamp-soft:#3A2420;
+  --warn:#DDA563; --neg:#EE8F84; --pos:#8CC2A6; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg)}
+html{scrollbar-gutter:stable;overflow-y:scroll}
+body{color:var(--ink);font-family:var(--font-body);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px calc(var(--tabh) + 96px + env(safe-area-inset-bottom,0px))}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+h1{font-size:13px;font-weight:500;color:var(--sub);margin:0;letter-spacing:.08em}
+h2{font-size:13px;font-weight:700;color:var(--sub);margin:22px 4px 8px;letter-spacing:.1em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+select,input{font:inherit;color:var(--ink);background:transparent;border:0;min-width:0}
+input{width:100%;padding:6px 0;border-bottom:1px dashed transparent;border-radius:0}
+input:focus{outline:none;border-bottom-color:var(--accent)}
+input.num{text-align:right}
+.period-row{display:grid;grid-template-columns:auto 88px auto 88px 1fr;gap:6px;align-items:center;margin:-4px 0 10px;font-size:13px;color:var(--sub)}
+.period-row .date-pick{font-size:14px;color:var(--ink)}
+.period-k{font-size:12px;margin-right:4px}
+.period-days{justify-self:end;font-size:12px}
+@media (hover:hover) and (pointer:fine){.period-row{grid-template-columns:auto 140px auto 140px 1fr}}
+.period-in{font-size:20px;font-weight:700;padding:2px 0;border-bottom:2px solid var(--accent);max-width:220px}
+select.period{font-size:20px;font-weight:700;padding:2px 22px 2px 0;appearance:none;-webkit-appearance:none;background:linear-gradient(45deg,transparent 50%,var(--sub) 50%) right 8px center/6px 6px no-repeat, linear-gradient(-45deg,transparent 50%,var(--sub) 50%) right 3px center/6px 6px no-repeat}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.btn{padding:8px 14px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:13px;white-space:nowrap}
+.btn.solid{background:var(--accent);color:var(--card)}
+.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--sub)}
+.link{color:var(--accent);font-weight:700;font-size:13px;padding:4px 2px}
+.panel{background:var(--card);border-radius:16px;padding:4px 16px;border:1px solid var(--line)}
+.hero{background:var(--card);border-radius:20px;padding:18px 18px 14px;border:1px solid var(--line)}
+.hero .label{font-size:12px;color:var(--sub);letter-spacing:.1em}
+.hero .big{font-size:40px;font-weight:500;line-height:1.1;margin:2px 0 12px}
+.big .yen{font-size:20px;margin-right:2px;color:var(--sub)}
+.eq{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:13px;color:var(--sub);border-top:1px solid var(--line);padding-top:10px}
+.eq b{font-weight:500;color:var(--ink);text-align:right}
+.breakdown{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:12px;color:var(--sub);margin:4px 0 2px 4px;padding:4px 0 4px 12px;border-left:2px solid var(--line)}
+.breakdown b{font-weight:400;color:var(--sub);text-align:right}
+.sum-note{font-size:10px;margin-left:6px;padding:0 6px;border-radius:999px;background:var(--bg);color:var(--sub);letter-spacing:.04em;vertical-align:1px}
+.plan{margin-top:10px;border-top:1px solid var(--line)}
+.plan-list{background:var(--bg);border-radius:12px;padding:2px 12px}
+.plan-tbl{width:100%;border-collapse:collapse;font-size:14px}
+.plan-tbl td{padding:10px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+.plan-tbl tr:last-child td{border-bottom:0}
+.plan-name{padding-left:12px!important}
+.plan-amt{text-align:right;white-space:nowrap;padding-left:12px!important;width:1%}
+.plan-amt-ed{width:96px;padding-left:8px!important}
+.plan-del{width:28px;padding-left:4px!important}
+.plan-tbl td input{padding:4px 0}
+.plan-sum{margin-top:10px;display:grid;gap:2px;font-size:13px;color:var(--sub)}
+.plan-sum div{display:flex;justify-content:space-between;gap:8px}
+.plan-sum b{font-weight:500;color:var(--ink)}
+.plan-sum p{margin:4px 0 0;font-size:12px;text-align:right}
+.src-pick{justify-self:end;display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;gap:2px}
+.src-btn{font-size:11px;padding:3px 10px;border-radius:999px;color:var(--sub)}
+.src-btn.on{background:var(--accent);color:var(--card);font-weight:700}
+.src-sum{margin-top:8px;border-top:1px dashed var(--line)}
+.src-tag{font-size:11px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:1px 8px}
+.dfield{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:6px}
+.dfield span{font-size:10px;color:var(--sub);white-space:nowrap}
+.dfield input{font-size:14px;border-bottom:1px dashed var(--line)}
+.alloc-line{font-size:12px;text-align:right;color:var(--ink);font-weight:500;margin-top:-2px}
+.alloc-line span{font-size:10px;color:var(--sub);font-weight:400}
+.crow{padding:6px 0;border-bottom:1px solid var(--line)}
+.crow:last-child{border-bottom:0}
+.crow-top{display:grid;grid-template-columns:minmax(0,1fr) 96px 40px 26px;gap:6px;align-items:center}
+.crow-sub{margin-top:2px}
+.crow-sub{display:grid;grid-template-columns:auto 96px 1fr;gap:8px;align-items:center}
+.crow-k{font-size:11px;color:var(--sub)}
+@media (hover:hover) and (pointer:fine){.crow-sub{grid-template-columns:auto 140px 1fr}}
+.crow-sub .msel{width:auto;max-width:100%;font-size:12px;color:var(--sub);padding:3px 6px}
+.prow{padding:8px 0;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.prow-top{display:grid;grid-template-columns:minmax(0,1fr) 100px 28px;gap:6px;align-items:center}
+.prow-cyc{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:6px;align-items:center;margin-top:2px}
+.sel{font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px}
+.prow-mo{font-size:11px;color:var(--sub);white-space:nowrap}
+.plan-edit-bar{display:flex;justify-content:flex-end;margin:-4px 0 4px}
+.prow-ro{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:14px}
+.prow-ro.sub{font-size:11px;color:var(--sub);margin-top:2px}
+.prow-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plan-when{font-size:12px;color:var(--sub);width:34%;line-height:1.35}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.chip{flex:1 1 0;min-width:0;background:var(--bg);border-radius:12px;padding:8px 10px}
+.chip .k{font-size:11px;color:var(--sub);letter-spacing:.08em}
+.chip .v{font-size:clamp(12px,3.6vw,17px);white-space:nowrap}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .name{min-width:0}
+.row .meta{font-size:12px;color:var(--sub)}
+.kv{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:12px;padding:4px 0;border-bottom:1px solid var(--line)}
+.kv:last-child{border-bottom:0}
+.kv label{font-size:14px;color:var(--sub);white-space:nowrap}
+.env{border-bottom:1px solid var(--line)}
+.env:last-child{border-bottom:0}
+.env-head{width:100%;display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:12px 0;text-align:left}
+.env-head .t{font-weight:700;font-size:16px;display:flex;gap:8px;align-items:center}
+.tag{font-size:10px;font-weight:500;color:var(--sub);border:1px solid var(--line);border-radius:4px;padding:0 5px;letter-spacing:.05em}
+.env-head .cur{font-size:20px;text-align:right}
+.env-head .calc{grid-column:1/-1;font-size:12px;color:var(--sub)}
+.bar{grid-column:1/-1;height:4px;border-radius:2px;background:var(--bg);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:2px}
+.bar i.over{background:var(--neg)}
+.env-body{padding:0 0 12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-bottom:6px}
+.field{display:flex;flex-direction:column;font-size:11px;color:var(--sub)}
+.field input{font-size:15px}
+.items{background:var(--bg);border-radius:12px;padding:2px 12px;margin-top:4px}
+.item{display:grid;grid-template-columns:1fr 110px 28px;gap:6px;align-items:center;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item.w-date{grid-template-columns:64px 1fr 96px 44px 28px}
+.del{width:28px;height:28px;border-radius:50%;color:var(--sub);font-size:16px;line-height:1}
+.del{position:relative}
+.neg{color:var(--neg)} .pos{color:var(--pos)} .warn{color:var(--warn)}
+.stamp{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;border:2px dashed var(--line);color:var(--sub);transition:transform .15s}
+.stamp.on{border:2px solid var(--stamp);color:var(--stamp);background:var(--stamp-soft);transform:rotate(-10deg)}
+.stamp.sm{width:34px;height:34px;font-size:13px}
+.event{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:6px 14px 8px;margin-bottom:10px}
+.event-h{display:grid;grid-template-columns:96px 1fr auto;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
+.event-h input.title{font-weight:700;font-size:16px}
+.event-h input.date{font-size:13px;color:var(--sub)}
+.bitem{display:grid;grid-template-columns:1fr 96px 40px 28px;gap:6px;align-items:center;border-bottom:1px dashed var(--line);padding:2px 0}
+.bitem:last-of-type{border-bottom:0}
+.ev-row{width:100%;display:grid;grid-template-columns:22px 18px 58px minmax(0,1fr) auto;gap:6px;align-items:center;min-height:48px;padding:4px 0;text-align:left}
+.ev-row.is-open{border-bottom:1px dashed var(--line)}
+.ev-row .ev-date,.ev-row .ev-date-in{font-size:12px;color:var(--sub)}
+.ev-row .ev-title,.ev-row .ev-title-in{font-weight:700;font-size:16px}
+.ev-chev{width:18px;height:40px;display:flex;align-items:center;justify-content:flex-start;padding:0}
+.ev-row.is-open .chev{transform:rotate(90deg)}
+.date-pick{position:relative;display:flex;align-items:center;min-height:36px;font-size:12px;color:var(--sub);cursor:pointer;border-bottom:1px dashed var(--line)}
+.date-pick .ph{opacity:.75}
+.date-pick input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:0;padding:0;margin:0;-webkit-appearance:none;appearance:none;font-size:16px}
+.ev-end{display:grid;grid-template-columns:22px 18px 58px minmax(0,1fr) auto;gap:6px;align-items:center;font-size:12px;color:var(--sub);border-bottom:1px solid var(--line);padding:2px 0}
+.ev-end .date-pick{grid-column:3/4}
+.ev-end .link{grid-column:5/6}
+@media (hover:hover) and (pointer:fine){
+  .date-pick span{display:none}
+  .date-pick input{position:static;opacity:1;width:100%;height:auto;font-size:13px;color:var(--sub);background:transparent;padding:6px 0;cursor:pointer;-webkit-appearance:auto;appearance:auto}
+  .ev-row,.ev-end{grid-template-columns:22px 18px 136px minmax(0,1fr) auto}
+  .date-pick.dp-empty span{display:block;position:absolute;left:0;top:50%;transform:translateY(-50%);pointer-events:none}
+  .date-pick.dp-empty input{color:transparent}
+  .date-pick.dp-empty:focus-within span{display:none}
+  .date-pick.dp-empty input:focus{color:var(--sub)}
+}
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 10px}
+.tb{font-size:12px;color:var(--sub);border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px}
+.grip{width:22px;height:40px;display:inline-flex;align-items:center;justify-content:flex-start;color:var(--sub);cursor:grab;touch-action:none;opacity:.6;margin-left:-4px}
+.grip svg{fill:currentColor}
+.event.dragging{position:relative;z-index:5;box-shadow:0 10px 28px rgba(0,0,0,.18);opacity:1!important}
+body.is-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
+div.ev-row[data-act]{cursor:pointer}
+.ev-row.is-open input{cursor:text}
+.event.alldone{opacity:.62}
+.ev-toggle{width:100%;display:grid;grid-template-columns:16px auto 1fr auto;gap:10px;align-items:center;padding:10px 0;text-align:left}
+.ev-toggle.open{padding:4px 0 2px;border-bottom:0}
+.chev{color:var(--sub);width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;transform-origin:50% 50%;transition:transform .15s}
+.chev svg{display:block}
+.ev-toggle.open .chev{transform:rotate(90deg)}
+.ev-date{font-size:12px;color:var(--sub);white-space:nowrap}
+.ev-title{font-weight:700;font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev-sum{display:flex;gap:8px;align-items:center;font-size:14px;justify-self:end;grid-column:-2}
+.ev-cnt{font-size:11px;color:var(--sub);border:1px dashed var(--line);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.ev-cnt.on{color:var(--stamp);border:1px solid var(--stamp);background:var(--stamp-soft);font-weight:700}
+.empty{text-align:center;padding:40px 16px;color:var(--sub)}
+.empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:6px}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
+.seg button{flex:1;padding:6px 10px;border-radius:999px;font-size:13px;color:var(--sub);white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--card);font-weight:700}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:1px solid var(--line);padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.tabs nav{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs button{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;white-space:nowrap;color:var(--sub);padding:4px 0}
+.tabs button svg{width:24px;height:24px}
+.tabs button[aria-current="page"]{color:var(--accent);font-weight:700}
+.tabs button.tab-center{justify-content:flex-end}
+.tab-center .orb{width:64px;height:64px;margin-top:-34px;border-radius:50%;background:var(--accent);color:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:4px solid var(--card);box-shadow:0 6px 16px rgba(0,0,0,.18);transition:transform .15s}
+.tab-center .orb svg{width:24px;height:24px}
+.orb-l{font-size:10.5px;font-weight:700;line-height:1;letter-spacing:.06em}
+.tabs button.tab-center[aria-current="page"] .orb{transform:scale(1.04)}
+.tabs button.tab-center:not([aria-current="page"]) .orb{opacity:.92}
+
+.fab{position:fixed;z-index:21;right:max(16px,calc(env(safe-area-inset-right,0px) + 16px));bottom:calc(var(--tabh) + 16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--card);border-radius:999px;padding:14px 20px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.18);display:flex;align-items:center;gap:6px}
+.sheet-bg{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.35)}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;background:var(--card);border-radius:20px 20px 0 0;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet .in{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.sheet h3{margin:0;font-size:17px}
+.pick{display:flex;flex-wrap:wrap;gap:8px}
+.pick button{padding:8px 12px;border-radius:10px;border:1px solid var(--line);font-size:14px}
+.pick button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:700}
+.sheet .box{border:1px solid var(--line);border-radius:12px;padding:4px 12px}
+.sheet .box input{font-size:18px}
+.hint{font-size:12px;color:var(--sub)}
+.dialog{position:fixed;z-index:32;left:50%;top:50%;transform:translate(-50%,-50%);width:min(320px,calc(100vw - 48px));background:var(--card);border-radius:18px;padding:20px 18px 16px;box-shadow:0 16px 48px rgba(0,0,0,.25)}
+.dialog p{margin:0 0 16px;font-size:15px;line-height:1.6;text-align:center;overflow-wrap:anywhere}
+.dlg-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dlg-btns .btn{padding:11px 0;font-size:14px;text-align:center}
+.btn.danger{background:var(--neg);color:var(--card)}
+.sync-banner{background:var(--stamp-soft);color:var(--stamp);border-radius:12px;padding:8px 12px;font-size:12px;margin-bottom:10px}
+.field input{border-bottom:1px solid var(--line)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tabh) + 84px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:999px;font-size:13px}
+.status{font-size:11px;color:var(--sub)}
+.chart{width:100%;height:auto;display:block}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font-weight:500;color:var(--sub);font-size:11px;text-align:right;padding:6px 4px;border-bottom:1px solid var(--line)}
+.tbl th:first-child,.tbl td:first-child{text-align:left}
+.tbl td{padding:2px 4px;border-bottom:1px solid var(--line);text-align:right}
+.tbl td input{padding:6px 0}
+.scroll{overflow-x:auto}
+.foot-note{font-size:12px;color:var(--sub);margin:8px 4px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap" id="app">
+  <div class="empty"><b>家計簿を読み込み中…</b>保存されたデータを取得しています。</div>
+</div>
+<div id="layer"></div>
+<div class="tabs"><nav id="tabs" aria-label="画面切り替え"></nav></div>
+
+<script>
+(()=>{
+const TABS=[
+ ['assets','資産','<path d="M3 10l9-6 9 6M5 10v9M19 10v9M9.5 10v9M14.5 10v9M3 20h18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>'],
+ ['bonus','賞与','<path d="M5 10h14v10H5zM3 7h18v3H3zM12 7v13M12 7c-2-4-6-3-5 0M12 7c2-4 6-3 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>'],
+ ['month','今月','<rect x="3.5" y="5" width="17" height="15.5" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 9.5h17M8.5 3v4M15.5 3v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.6 12.2l2.4 2.9 2.4-2.9M12 15.1v3.4M10.2 16.3h3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'],
+ ['cards','カード','<rect x="3" y="6" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3 10h18M7 15h4" stroke="currentColor" stroke-width="1.8"/>'],
+ ['funds','サブスク','<ellipse cx="12" cy="7" rx="7" ry="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5 7v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7M5 12v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5" fill="none" stroke="currentColor" stroke-width="1.8"/>']
+];
+const S={months:{},bonus:{},one:{},loaded:{months:false,bonus:false,one:false},
+  ui:{tab:'month',month:null,bonus:null,open:{},sheet:null,cardsShowDone:false},db:null,err:null};
+S.ui.evOpen={};
+try{const t=localStorage.getItem('kk.tab');if(t)S.ui.tab=t==='savings'?'assets':t==='fixed'?'funds':t;S.ui.evOpen=JSON.parse(localStorage.getItem('kk.ev')||'{}')||{}}catch(e){}
+function saveEv(){try{localStorage.setItem('kk.ev',JSON.stringify(S.ui.evOpen))}catch(e){}}
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const n=v=>Number(v)||0;
+const yen=v=>{const r=Math.round(n(v));return (r<0?'−':'')+Math.abs(r).toLocaleString('ja-JP')};
+const sum=(a,f)=>a.reduce((s,x)=>s+n(f?f(x):x),0);
+const clone=o=>JSON.parse(JSON.stringify(o));
+function evalAmount(str){
+  str=String(str).replace(/[０-９＋－ー×÷（）．，]/g,c=>({'＋':'+','－':'-','ー':'-','×':'*','÷':'/','（':'(','）':')','．':'.','，':''}[c]??String.fromCharCode(c.charCodeAt(0)-0xFEE0))).replace(/[,\s円¥]/g,'');
+  if(str==='')return 0;
+  if(!/^[\d+\-*/().]+$/.test(str))return null;
+  try{const v=Function('"use strict";return ('+str+')')();return Number.isFinite(v)?Math.round(v*100)/100:null}catch(e){return null}
+}
+function getIn(o,path){return path.split('.').reduce((a,k)=>a?.[k],o)}
+function setIn(o,path,v){const ks=path.split('.');const last=ks.pop();const t=ks.reduce((a,k)=>a[k],o);t[last]=v}
+function docOf(path){const [c,id]=path.split('/');return S[c]?.[id]}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),1800)}
+function fmtRange(e){const a=fmtDate(e.date)||e.date||'';if(!e.dateEnd||e.dateEnd===e.date)return a;const s=/^(\d{4})-(\d{2})-(\d{2})$/.exec(e.date||''),t=/^(\d{4})-(\d{2})-(\d{2})$/.exec(e.dateEnd);if(s&&t&&s[2]===t[2])return a+'-'+(+t[3]);return a+'-'+fmtDate(e.dateEnd)}
+function datePick(P,key,val,label,ph){return `<label class="date-pick ${val?'':'dp-empty'}"><span class="${val?'':'ph'}">${val?esc(fmtDate(val)):esc(ph)}</span><input type="date" data-doc="${P}" data-key="${key}" data-t="text" value="${esc(/^\d{4}-\d{2}-\d{2}$/.test(val||'')?val:'')}" aria-label="${esc(label)}"></label>`}
+function fmtDate(s){if(!s)return'';const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s);return m?`${+m[2]}/${+m[3]}`:s}
+
+/* ---------- storage: Google スプレッドシート (Apps Script) ---------- */
+const CFG_KEY='kk.cfg',CACHE_KEY='kk.cache';
+function getCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY)||'null')}catch(e){return null}}
+function setCfg(c){try{c?localStorage.setItem(CFG_KEY,JSON.stringify(c)):localStorage.removeItem(CFG_KEY)}catch(e){}}
+const api={
+  async load(cfg){const u=cfg.url+(cfg.url.includes('?')?'&':'?')+'key='+encodeURIComponent(cfg.key)+'&t='+Date.now();
+    const r=await fetch(u,{cache:'no-store',redirect:'follow'});const j=await r.json();if(!j.ok)throw{code:j.error||'error'};return j.docs||{}},
+  async post(cfg,body){const r=await fetch(cfg.url,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...body,key:cfg.key})});
+    const j=await r.json();if(!j.ok)throw{code:j.error||'error'};return j}
+};
+function makeDb(cfg){return {doc:path=>({set:data=>api.post(cfg,{op:'set',path,data}),delete:()=>api.post(cfg,{op:'delete',path})})}}
+const pending={},inflight={},failed={};
+let syncState='';function setSync(s){syncState=s;const el=document.getElementById('sync');if(el){el.textContent=s;el.dataset.s=s}}
+function save(path){pending[path]=true;saveCache();if(!inflight[path])flush(path)}
+async function flush(path){
+  if(!S.db){toast('保存先が設定されていません');return}
+  inflight[path]=true;setSync('保存中…');
+  while(pending[path]){
+    pending[path]=false;
+    const data=clone(docOf(path)||{});data.updatedAt=new Date().toISOString();
+    try{await S.db.doc(path).set(data);delete failed[path]}
+    catch(e){
+      await new Promise(r=>setTimeout(r,800+Math.random()*700));
+      try{await S.db.doc(path).set(data);delete failed[path]}
+      catch(e2){failed[path]=true;toast(e2?.code==='bad_key'?'合言葉が違うため保存できませんでした':'保存できませんでした。電波のよい所で開き直すと再送します')}
+    }
+  }
+  inflight[path]=false;
+  if(!Object.values(inflight).some(Boolean))setSync(Object.keys(failed).length?'未保存あり':'保存済み');
+}
+function retryFailed(){Object.keys(failed).forEach(p=>{if(docOf(p))save(p);else delete failed[p]})}
+function remove(path){const [c,id]=path.split('/');delete S[c][id];saveCache();S.db?.doc(path).delete().catch(()=>toast('削除できませんでした'))}
+function saveCache(){try{localStorage.setItem(CACHE_KEY,JSON.stringify({months:S.months,bonus:S.bonus,one:S.one,at:Date.now()}))}catch(e){}}
+function applyDocs(docs){
+  const next={months:{},bonus:{},one:{}};
+  Object.entries(docs).forEach(([p,v])=>{const [c,id]=p.split('/');if(next[c]&&id)next[c][id]=clone(v.data||v)});
+  ['months','bonus','one'].forEach(c=>{Object.keys(S[c]).forEach(id=>{const p=c+'/'+id;if(pending[p]||inflight[p]||failed[p])next[c][id]=S[c][id]});S[c]=next[c];S.loaded[c]=true});
+  saveCache();
+}
+let loading=false;
+async function reload(quiet){
+  const cfg=getCfg();if(!cfg||loading)return;
+  if(Object.values(inflight).some(Boolean))return;
+  loading=true;if(!quiet)setSync('読み込み中…');
+  try{const docs=await api.load(cfg);applyDocs(docs);S.err=null;setSync(Object.keys(failed).length?'未保存あり':'最新');retryFailed()}
+  catch(e){
+    if(e?.code==='bad_key'){S.err='合言葉が違います。「接続設定」から入れ直してください。';S.ui.setup=true}
+    else{setSync('オフライン');if(!S.loaded.months)S.err='保存先に接続できませんでした。電波を確認して開き直してください。'}
+  }
+  loading=false;render();
+}
+/* ---------- calculations (Excelの式と同じ) ---------- */
+function calcBonus(b){
+  if(!b)return null;
+  const items=(b.events||[]).flatMap(e=>e.items||[]);
+  const usable=n(b.base)+n(b.carry)-n(b.saving);
+  const budget=sum(items,i=>i.a);
+  const paid=sum(items.filter(i=>i.done),i=>i.a);
+  return {usable,budget,remain:usable-budget,upcoming:usable-paid,paid};
+}
+function fundCalc(f){
+  const dep=Object.keys(S.months).sort().map(id=>{const t=(S.months[id].tsumitate||[]).find(x=>x.fund===f.id);return t&&n(t.amount)?{date:id,n:'毎月の積立',a:n(t.amount)}:null}).filter(Boolean);
+  const ent=f.entries||[];
+  const inSum=n(f.opening)+sum(dep,x=>x.a)+sum(ent.filter(e=>e.kind==='in'),e=>e.a);
+  const outSum=sum(ent.filter(e=>e.kind!=='in'),e=>e.a);
+  return {dep,inSum,outSum,balance:inSum-outSum};
+}
+function fundsTotal(){return sum(S.one.funds?.funds||[],f=>fundCalc(f).balance)}
+function latestBonusId(){const ids=Object.keys(S.bonus);if(!ids.length)return null;return ids.sort((a,b)=>String(S.bonus[a].createdAt||'').localeCompare(String(S.bonus[b].createdAt||''))||a.localeCompare(b))[ids.length-1]}
+function latestBonus(){const id=latestBonusId();return id?S.bonus[id]:null}
+function cardsPending(){const c=S.one.cards?.cards||[];return sum(c.flatMap(x=>x.items||[]).filter(i=>!i.done),i=>i.a)}
+function cardForDebit(name){const cs=S.one.cards?.cards||[];return cs.find(c=>c.name===name)||cs.find(c=>name&&(name.startsWith(c.name)||c.name.startsWith(name.replace(/カード$/,''))))}
+function bonusCardSum(m,d){if(!m.start||!m.end)return 0;const c=cardForDebit(d.name);if(!c)return 0;return sum((c.items||[]).filter(i=>i.src==='bonus'&&i.date&&i.date>=m.start&&i.date<=m.end),i=>i.a)}
+function sortedOf(m,d){return n(d.sorted)+bonusCardSum(m,d)}
+function calcMonth(m){
+  const envs=m.envelopes||[];const debits=m.debits||[];
+  const debitAlloc=sum(debits,d=>n(d.amount)-sortedOf(m,d));
+  const envAlloc=envs.map(e=>e.rule==='perDay'?n(m.days)*n(e.rate||1000):e.rule==='rest'?0:n(e.alloc));
+  const tsumiAlloc=sum(m.tsumitate||[],t=>t.amount);
+  const allocTotal=sum(envAlloc)+debitAlloc+tsumiAlloc;
+  const start=n(m.salary)-allocTotal;
+  const E=envs.map((e,i)=>{
+    const alloc=e.rule==='rest'?start:envAlloc[i];
+    const total=n(e.carry)+alloc;
+    let spent,cur;
+    if(e.balanceMode){cur=e.balance==null||e.balance===''?0:n(e.balance);spent=total-cur}
+    else{spent=sum(e.items||[],x=>x.a);cur=total-spent}
+    return {alloc,total,spent,cur};
+  });
+  const ri=envs.findIndex(e=>e.rule==='rest');
+  const balance=ri>=0?E[ri].alloc-E[ri].spent:0;
+  const assets=sum(S.one.assets?.accounts||[],a=>a.a);
+  const bonusUp=sum(Object.values(S.bonus),b=>calcBonus(b).upcoming);
+  const envUp=sum(envs.map((e,i)=>e.manage==='口座'?E[i].cur:0));
+  const debitUp=sum(debits.filter(d=>!d.done),d=>n(d.amount)-sortedOf(m,d));
+  const cardUp=cardsPending();
+  const fundUp=fundsTotal();
+  const upcoming=bonusUp+envUp+fundUp+debitUp+cardUp;
+  return {E,debitAlloc,tsumiAlloc,allocTotal,start,balance,assets,bonusUp,envUp,fundUp,debitUp,cardUp,upcoming,left:assets-upcoming};
+}
+
+/* ---------- small UI builders ---------- */
+const numIn=(doc,key,val,extra='')=>`<input class="num" inputmode="decimal" data-doc="${doc}" data-key="${key}" data-t="num" value="${val===null||val===undefined||val===''?'':esc((Math.round(n(val)*100)/100).toLocaleString('ja-JP'))}" ${extra}>`;
+const txtIn=(doc,key,val,extra='')=>`<input data-doc="${doc}" data-key="${key}" data-t="text" value="${esc(val)}" ${extra}>`;
+const delBtn=(doc,arr,idx,label='項目')=>`<button class="del" data-act="del" data-doc="${doc}" data-arr="${arr}" data-idx="${idx}" aria-label="${esc(label)}を削除">×</button>`;
+const stamp=(doc,key,on,cls='')=>`<button class="stamp ${cls} ${on?'on':''}" data-act="toggle" data-doc="${doc}" data-key="${key}" aria-pressed="${on}" aria-label="支払い済み">${on?'済':'未'}</button>`;
+
+/* ---------- views ---------- */
+function monthIds(){return Object.keys(S.months).sort().reverse()}
+function viewMonth(){
+  const ids=monthIds();
+  if(!ids.length)return `<div class="empty"><b>まだ月のデータがありません</b>最初の月を作ると、封筒ごとの予算と引落しを管理できます。<div style="margin-top:16px"><button class="btn solid" data-act="first-month">最初の月を作成</button></div></div>`;
+  if(!S.ui.month||!S.months[S.ui.month])S.ui.month=ids[0];
+  const id=S.ui.month,m=S.months[id],P='months/'+id,c=calcMonth(m);
+  const envs=m.envelopes||[];
+  const envHtml=envs.map((e,i)=>{
+    const r=c.E[i],open=S.ui.open['env'+i];
+    const pct=r.total>0?Math.min(100,Math.max(0,r.spent/r.total*100)):0;
+    let body='';
+    if(open){
+      body=`<div class="env-body"><div class="grid2">
+        <label class="field">前月繰越${numIn(P,`envelopes.${i}.carry`,e.carry)}</label>
+        <label class="field">今月割当${e.rule==='perDay'?`<input class="num" disabled value="${yen(r.alloc)}" aria-label="日数×${e.rate||1000}円">`:e.rule==='rest'?`<input class="num" disabled value="${yen(r.alloc)}" aria-label="予算残金">`:numIn(P,`envelopes.${i}.alloc`,e.alloc)}</label>
+      </div>
+      ${e.rule==='perDay'?`<p class="hint">割当は 日数 × ${yen(e.rate||1000)}円 で自動計算</p>`:''}
+      ${e.rule==='rest'?`<p class="hint">割当は「予算残金」（給与 − ほかの割当）で自動計算</p>`:''}
+      ${e.balanceMode?`<label class="field">いまの残高（PayPayなどを見て入力）${numIn(P,`envelopes.${i}.balance`,e.balance,'placeholder="未入力"')}</label>`:
+      `<div class="items">${(e.items||[]).map((it,j)=>`<div class="item">${txtIn(P,`envelopes.${i}.items.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`envelopes.${i}.items.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`envelopes.${i}.items`,j)}</div>`).join('')||'<p class="hint">まだ支出はありません</p>'}</div>
+      <div style="margin-top:8px;display:flex;justify-content:flex-end"><button class="link" data-act="quick" data-env="${i}">＋ ${esc(e.name)}に支出を追加</button></div>`}
+      </div>`;
+    }
+    return `<div class="env"><button class="env-head" data-act="open" data-k="env${i}" aria-expanded="${!!open}">
+      <span class="t">${esc(e.name)}<span class="tag">${esc(e.manage||'')}</span></span>
+      <span class="cur num ${r.cur<0?'neg':''}">${yen(r.cur)}</span>
+      <span class="calc num">${yen(r.spent)} / ${yen(r.total)}</span>
+      <span class="bar"><i class="${r.cur<0?'over':''}" style="width:${pct}%"></i></span>
+    </button>${body}</div>`;
+  }).join('');
+  const debits=(m.debits||[]).map((d,i)=>`<div class="row" style="grid-template-columns:1fr auto auto">
+     <div class="name">${S.ui.open.debEdit?`${txtIn(P,`debits.${i}.name`,d.name,'aria-label="名前"')}${txtIn(P,`debits.${i}.manage`,d.manage,'placeholder="メモ・日付" aria-label="メモ" style="font-size:12px;color:var(--sub)"')}`:`<div>${esc(d.name)}</div><div class="meta">${esc(fmtDate(d.manage))}${sortedOf(m,d)?`${d.manage?' · ':''}振分け済 −${yen(sortedOf(m,d))}`:''}${bonusCardSum(m,d)?`（うち賞与から支払い ${yen(bonusCardSum(m,d))}）`:''}</div>`}</div>
+     <div style="width:${S.ui.open.debEdit?'120':'104'}px">${S.ui.open.debEdit?`<label class="dfield"><span>引落し額</span>${numIn(P,`debits.${i}.amount`,d.amount,'aria-label="引落し額"')}</label><label class="dfield"><span>振分け済</span>${numIn(P,`debits.${i}.sorted`,d.sorted,'aria-label="振分け済（手入力分）" placeholder="0"')}</label>${bonusCardSum(m,d)?`<div class="meta num" style="font-size:11px;text-align:right">＋賞与から ${yen(bonusCardSum(m,d))}</div>`:''}`:numIn(P,`debits.${i}.amount`,d.amount,'aria-label="引落し額"')}${!S.ui.open.debEdit&&(cardForDebit(d.name)||sortedOf(m,d))?`<div class="alloc-line num"><span>今月割当</span> ${yen(n(d.amount)-sortedOf(m,d))}</div>`:''}</div>
+     ${S.ui.open.debEdit?delBtn(P,'debits',i):stamp(P,`debits.${i}.done`,d.done,'sm')}
+   </div>`).join('');
+  return `
+  <div class="top"><div style="display:flex;align-items:center;gap:4px;min-width:0;flex:1">${S.ui.open.labelEdit?`<input id="m-label-top" class="period-in" data-doc="${P}" data-key="label" data-t="text" value="${esc(m.label)}" aria-label="期間の名前" enterkeyhint="done">`:`<select class="period" id="sel-month" aria-label="月を選ぶ">${ids.map(x=>`<option value="${x}" ${x===id?'selected':''}>${esc(S.months[x].label||x)}</option>`).join('')}</select><button class="del" style="color:var(--sub)" data-act="label-edit" aria-label="期間の名前を変更"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`}</div>
+   <button class="btn" data-act="new-month">＋ 次の月</button></div>
+  <div class="period-row"><span class="period-k">期間</span>${datePick(P,'start',m.start,'開始日','開始日')}<span class="period-sep">〜</span>${datePick(P,'end',m.end,'終了日','終了日')}<span class="period-days num">${periodDays(m)?periodDays(m)+'日間':''}</span></div>
+  <h2>今月まとめ</h2>
+  <div class="panel">
+    <div class="kv"><label for="m-sal">給与</label>${numIn(P,'salary',m.salary,'id="m-sal" style="font-size:18px"')}</div>
+    <div class="kv"><label>今月割当の合計</label><span class="num" style="text-align:right;padding:6px 0">${yen(c.allocTotal)}</span></div>
+    <div class="kv"><label>予算残金</label><span class="num" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${yen(c.start)}</span></div>
+    <div class="kv"><label>free貯金の収支<br><span class="meta" style="font-size:11px">予算残金 − free貯金で使った額</span></label><span class="num ${c.balance<0?'neg':'pos'}" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${c.balance>=0?'+':''}${yen(c.balance)}</span></div>
+  </div>
+
+  <h2>予算</h2>
+  <div class="panel">${envHtml}</div>
+
+  <h2>積立 <button class="link" data-act="tab" data-v="funds">積立を見る ›</button></h2>
+  <div class="panel">${(m.tsumitate||[]).map((t,i)=>{const f=(S.one.funds?.funds||[]).find(x=>x.id===t.fund);return `<div class="kv"><label for="ts${i}"><span style="color:var(--ink);font-weight:700">${esc(t.name)}</span><br><span class="meta num" style="font-size:12px">残高 ${f?yen(fundCalc(f).balance):'—'}</span></label>${numIn(P,`tsumitate.${i}.amount`,t.amount,`id="ts${i}" style="font-size:18px"`)}</div>`}).join('')||'<p class="hint">積立はありません</p>'}</div>
+
+  <h2>引落・振込 <button class="link" data-act="open" data-k="debEdit">${S.ui.open.debEdit?'完了':'編集'}</button></h2>
+  <div class="panel">${debits||'<p class="hint">引落しはありません</p>'}</div>
+  ${S.ui.open.debEdit?`<div style="margin-top:8px;text-align:right"><button class="link" data-act="add-debit">＋ 引落しを追加</button></div>`:''}
+
+
+  <p class="foot-note">金額欄は「880+5995」のような足し算・割り算もそのまま入力できます。</p>
+  <div style="margin-top:20px;text-align:center"><button class="del" style="width:auto;padding:0 12px;font-size:12px" data-act="del-doc" data-doc="${P}">この月を削除</button></div>`;
+}
+
+function viewSetup(){
+  const cfg=S.ui.setupDraft||getCfg()||{};const m=S.ui.setupMsg||'';
+  return `<h2 style="margin-top:4px">接続設定</h2>
+  <div class="panel" style="padding-block:14px">
+    <p class="hint" style="margin:0 0 10px">Googleスプレッドシートに作った保存用プログラムの「ウェブアプリのURL」と、プログラムに書いた合言葉を入れてください。</p>
+    <label class="field">ウェブアプリのURL<input id="cfg-url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(cfg.url||'')}"></label>
+    <label class="field" style="margin-top:8px">合言葉<input id="cfg-key" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(cfg.key||'')}"></label>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">${getCfg()&&S.loaded.months?'<button class="btn ghost" data-act="setup-close">閉じる</button>':''}<button class="btn solid" data-act="setup-connect">接続する</button></div>
+    ${m?`<p class="hint" style="margin:10px 0 0;color:var(--ink)">${esc(m)}</p>`:''}
+  </div>
+  <h2>データの取り込み・書き出し</h2>
+  <div class="panel" style="padding-block:14px">
+    <p class="hint" style="margin:0 0 10px">バックアップファイル（kakeibo-data.json）を読み込むと、その内容をスプレッドシートに保存します。同じ名前のデータは上書きされます。</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+      <label class="btn" style="cursor:pointer">ファイルを取り込む<input id="imp-file" type="file" accept="application/json,.json" hidden></label>
+      <button class="btn" data-act="setup-export" ${S.loaded.months?'':'disabled'}>バックアップを書き出す</button>
+    </div>
+  </div>
+  <p class="foot-note">状態：<span id="sync">${esc(syncState||'—')}</span></p>`;
+}
+function viewAssets(){
+  const ids=monthIds();
+  if(!ids.length)return `<div class="empty"><b>まだ月のデータがありません</b>「今月」タブで最初の月を作ると、資産と残りが計算されます。</div>`;
+  const m=S.months[ids[0]],P='one/assets',c=calcMonth(m),accs=S.one.assets?.accounts||[];
+  return `<h2 style="margin-top:4px">全体収支</h2>
+  <section class="hero" aria-label="全体収支">
+    <div class="label">支払いをすべて済ませた後に残るお金</div>
+    <div class="big num ${c.left<0?'neg':''}"><span class="yen">¥</span>${yen(c.left)}</div>
+    <div class="eq num"><span>資産の合計</span><b>${yen(c.assets)}</b>
+      <span>− 今後支払い予定<span class="sum-note">下の5つの合計</span></span><b>${yen(c.upcoming)}</b></div>
+    <div class="breakdown num">
+      <span>賞与の残り予定（全賞与）</span><b>${yen(c.bonusUp)}</b>
+      <span>口座の予算（${(m.envelopes||[]).filter(e=>e.manage==='口座').map(e=>esc(e.name)).join('・')||'なし'}）</span><b>${yen(c.envUp)}</b>
+      <span>積立の残高</span><b>${yen(c.fundUp)}</b>
+      <span>未払いの引落し</span><b>${yen(c.debitUp)}</b>
+      <span>カード未払い</span><b>${yen(c.cardUp)}</b></div>
+  </section>
+  <h2>資産 <button class="link" data-act="open" data-k="accEdit">${S.ui.open.accEdit?'完了':'編集'}</button></h2>
+  <div class="panel">${accs.map((a,i)=>S.ui.open.accEdit?`<div class="item" style="grid-template-columns:1fr 130px 28px">${txtIn(P,`accounts.${i}.n`,a.n,'aria-label="名前"')}${numIn(P,`accounts.${i}.a`,a.a,'aria-label="金額"')}${delBtn(P,'accounts',i)}</div>`:`<div class="kv"><label for="acc${i}">${esc(a.n)}</label>${numIn(P,`accounts.${i}.a`,a.a,`id="acc${i}" style="font-size:18px"`)}</div>`).join('')}
+    <div class="kv"><label style="font-weight:700;color:var(--ink)">合計</label><span class="num" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${yen(c.assets)}</span></div></div>
+  ${S.ui.open.accEdit?`<div style="margin-top:8px;text-align:right"><button class="link" data-act="add-account">＋ 口座を追加</button></div>`:''}
+  <p class="foot-note">「今後支払い予定」は、いちばん新しい月（${esc(m.label||ids[0])}）の予算と引落しで計算しています。</p>
+  ${viewSavings()}
+  <div style="margin-top:28px;display:flex;justify-content:space-between;align-items:center"><span class="foot-note" style="margin:0">保存先：Googleスプレッドシート（<span id="sync">${esc(syncState||'—')}</span>）</span><button class="link" data-act="setup-open">接続設定</button></div>`;
+}
+function viewBonus(){
+  const ids=Object.keys(S.bonus).sort().reverse();
+  if(!ids.length)return `<div class="empty"><b>賞与の予算がありません</b>賞与ごとに、使う予定と支払い済みを管理できます。<div style="margin-top:16px"><button class="btn solid" data-act="new-bonus">賞与の予算を作成</button></div></div>`;
+  if(!S.ui.bonus||!S.bonus[S.ui.bonus])S.ui.bonus=latestBonusId()||ids[0];
+  const id=S.ui.bonus,b=S.bonus[id],P='bonus/'+id,c=calcBonus(b);
+  const ev=(b.events||[]).map((e,i)=>{
+    const its=e.items||[],nd=its.filter(x=>x.done).length;
+    const done=its.length&&nd===its.length;
+    const k=id+':'+i,open=k in S.ui.evOpen?S.ui.evOpen[k]:!done;
+    const grip=`<span class="grip" data-grip="${i}" role="button" aria-label="ドラッグして並べ替え"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>`;
+    const tail=`<span class="ev-sum"><span class="num">${yen(sum(its,x=>x.a))}</span><span class="ev-cnt ${done?'on':''}">${done?'済':`済 ${nd}/${its.length}`}</span></span>`;
+    if(!open)return `<div class="event ${done?'alldone':''}" data-idx="${i}"><div class="ev-row" data-act="ev" data-k="${k}" role="button" tabindex="0" aria-expanded="false">${grip}<span class="chev" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ev-date">${esc(fmtRange(e))}</span><span class="ev-title">${esc(e.title||'（無題）')}</span>${tail}</div></div>`;
+    return `<div class="event ${done?'alldone':''}" data-idx="${i}">
+    <div class="ev-row is-open" data-act="ev" data-k="${k}" aria-expanded="true">${grip}<button class="ev-chev" data-act="ev" data-k="${k}" aria-expanded="true" aria-label="閉じる"><span class="chev" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>${datePick(P,`events.${i}.date`,e.date,'開始日','開始日')}${txtIn(P,`events.${i}.title`,e.title,'class="ev-title-in" placeholder="予定" aria-label="予定"')}${tail}</div>
+    <div class="ev-end"><span></span><span></span>${datePick(P,`events.${i}.dateEnd`,e.dateEnd,'終了日','終了日')}<span></span>${e.dateEnd?`<button class="link" style="font-weight:500;font-size:12px" data-act="clear-end" data-ev="${i}">消す</button>`:'<span></span>'}</div>
+    ${(e.items||[]).map((it,j)=>`<div class="bitem">${txtIn(P,`events.${i}.items.${j}.n`,it.n,'placeholder="項目" aria-label="項目"')}${numIn(P,`events.${i}.items.${j}.a`,it.a,'aria-label="金額"')}${stamp(P,`events.${i}.items.${j}.done`,it.done,'sm')}${delBtn(P,`events.${i}.items`,j)}</div>`).join('')}
+    <div style="display:flex;justify-content:space-between;margin-top:4px"><button class="del" style="width:auto;padding:0 8px;font-size:12px" data-act="del" data-doc="${P}" data-arr="events" data-idx="${i}">予定を削除</button><button class="link" data-act="add-bitem" data-ev="${i}">＋ 項目</button></div>
+    </div>`}).join('');
+  return `
+  <div class="top"><div style="display:flex;align-items:center;gap:4px;min-width:0;flex:1">${S.ui.open.bLabelEdit?`<input id="b-label-top" class="period-in" data-doc="${P}" data-key="label" data-t="text" value="${esc(b.label)}" aria-label="賞与の名前" enterkeyhint="done">`:`<select class="period" id="sel-bonus" aria-label="賞与を選ぶ">${ids.map(x=>`<option value="${x}" ${x===id?'selected':''}>${esc(S.bonus[x].label||x)}</option>`).join('')}</select><button class="del" style="color:var(--sub)" data-act="blabel-edit" aria-label="賞与の名前を変更"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`}</div>
+   <button class="btn" data-act="new-bonus">＋ 新しい賞与</button></div>
+  <section class="hero">
+    <div class="label">予算を全部使っても残る額</div>
+    <div class="big num ${c.remain<0?'neg':''}"><span class="yen">¥</span>${yen(c.remain)}</div>
+    <div class="eq num"><span>使える額</span><b>${yen(c.usable)}</b><span>予算の合計</span><b>${yen(c.budget)}</b><span>支払い済み</span><b>${yen(c.paid)}</b><span>今後支払い予定（口座に残す額）</span><b>${yen(c.upcoming)}</b></div>
+  </section>
+  <h2>設定</h2>
+  <div class="panel">
+    <div class="kv"><label>期間</label>${txtIn(P,'period',b.period,'style="text-align:right"')}</div>
+    <div class="kv"><label>賞与額</label>${numIn(P,'base',b.base)}</div>
+    <div class="kv"><label>前回賞与の残り</label>${numIn(P,'carry',b.carry)}</div>
+    <div class="kv"><label>貯金</label>${numIn(P,'saving',b.saving)}</div>
+  </div>
+  <h2>予定 <button class="link" data-act="add-event">＋ 追加</button></h2>
+  <div class="toolbar"><button class="tb" data-act="ev-sort">日付順に並べる</button><button class="tb" data-act="ev-all" data-v="0">すべて閉じる</button><button class="tb" data-act="ev-all" data-v="1">すべて開く</button></div>
+  ${ev||'<p class="hint">予定はまだありません</p>'}
+  <div style="margin-top:20px;text-align:center"><button class="del" style="width:auto;padding:0 12px;font-size:12px" data-act="del-doc" data-doc="${P}">この賞与を削除</button></div>`;
+}
+
+function viewCards(){
+  const P='one/cards';const d=S.one.cards;
+  if(!d)return `<div class="empty"><b>カードの記録がありません</b><div style="margin-top:16px"><button class="btn solid" data-act="init-cards">カード一覧を作成</button></div></div>`;
+  const total=cardsPending();
+  return `<div class="top"><h1>カード振分け</h1><div class="seg" role="group" aria-label="表示"><button data-act="cards-done" data-v="0" aria-pressed="${!S.ui.cardsShowDone}">未払い</button><button data-act="cards-done" data-v="1" aria-pressed="${S.ui.cardsShowDone}">すべて</button></div></div>
+  <section class="hero"><div class="label">今後の引落し合計</div><div class="big num"><span class="yen">¥</span>${yen(total)}</div>
+  <div class="eq num">${d.cards.map(c=>`<span>${esc(c.name)}</span><b>${yen(sum((c.items||[]).filter(i=>!i.done),i=>i.a))}</b>`).join('')}</div>
+  ${(()=>{const un=d.cards.flatMap(c=>c.items||[]).filter(i=>!i.done);const sal=sum(un.filter(i=>i.src==='salary'),i=>i.a),bon=sum(un.filter(i=>i.src==='bonus'),i=>i.a),no=sum(un.filter(i=>!i.src),i=>i.a);return `<div class="eq num src-sum"><span>給与から</span><b>${yen(sal)}</b><span>賞与から</span><b>${yen(bon)}</b><span>未設定</span><b>${yen(no)}</b></div>`})()}</section>
+  ${d.cards.map((c,ci)=>{
+    const list=(c.items||[]).map((it,j)=>({it,j})).filter(x=>S.ui.cardsShowDone||!x.it.done);
+    const hidden=(c.items||[]).length-list.length;
+    return `<h2>${esc(c.name)} <button class="link" data-act="add-citem" data-c="${ci}">＋ 追加</button></h2>
+    <div class="panel">${list.map(({it,j})=>`<div class="crow"><div class="crow-top">${txtIn(P,`cards.${ci}.items.${j}.n`,it.n,'placeholder="内容" aria-label="内容"')}${numIn(P,`cards.${ci}.items.${j}.a`,it.a,'aria-label="金額"')}${stamp(P,`cards.${ci}.items.${j}.done`,it.done,'sm')}${delBtn(P,`cards.${ci}.items`,j)}</div><div class="crow-sub"><span class="crow-k">引落し日</span>${datePick(P,`cards.${ci}.items.${j}.date`,it.date,'引落し日','日付を選ぶ')}<span class="src-pick" role="group" aria-label="引落し元">${[['salary','給与'],['bonus','賞与']].map(([v,l])=>`<button class="src-btn ${v} ${it.src===v?'on':''}" data-act="csrc" data-c="${ci}" data-j="${j}" data-v="${v}" aria-pressed="${it.src===v}">${l}</button>`).join('')}</span></div></div>`).join('')||`<p class="hint">未払いはありません${hidden?`（済 ${hidden}件）`:''}</p>`}</div>`}).join('')}`;
+}
+
+function viewSavings(){
+  const P='one/savings';const d=S.one.savings;
+  if(!d)return `<h2>貯金</h2><div class="panel" style="padding-block:16px;text-align:center"><p class="hint" style="margin:0 0 10px">貯金の記録はまだありません</p><button class="btn solid" data-act="init-savings">記録を始める</button></div>`;
+  const rows=(d.rows||[]).map((r,i)=>({...r,i,t:n(r.a)+n(r.b)+n(r.c)})).sort((x,y)=>String(x.date).localeCompare(String(y.date)));
+  const last=rows[rows.length-1],prev=rows[rows.length-2];
+  const diff=last&&prev?last.t-prev.t:0;
+  // chart
+  let chart='';
+  if(rows.length>1){
+    const W=340,H=150,pl=36,pr=8,pt=14,pb=22;
+    const vals=rows.map(r=>r.t),max=Math.max(...vals),min=Math.min(...vals);
+    const lo=Math.floor(min*0.95/100000)*100000,hi=Math.ceil(max*1.02/100000)*100000;
+    const x=i=>pl+(W-pl-pr)*i/(rows.length-1),y=v=>pt+(H-pt-pb)*(1-(v-lo)/(hi-lo||1));
+    const line=rows.map((r,i)=>`${i?'L':'M'}${x(i).toFixed(1)},${y(r.t).toFixed(1)}`).join('');
+    const area=line+`L${x(rows.length-1).toFixed(1)},${H-pb}L${x(0).toFixed(1)},${H-pb}Z`;
+    const ticks=[lo,(lo+hi)/2,hi];
+    chart=`<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="貯金合計の推移">
+      ${ticks.map(t=>`<line x1="${pl}" x2="${W-pr}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)" stroke-width="1"/><text x="0" y="${y(t)+3}" font-size="9" fill="var(--sub)" font-family="DM Mono,monospace">${Math.round(t/10000)}万</text>`).join('')}
+      <path d="${area}" fill="var(--accent-soft)"/><path d="${line}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="${x(rows.length-1)}" cy="${y(last.t)}" r="4" fill="var(--accent)"/>
+      <text x="${pl}" y="${H-6}" font-size="9" fill="var(--sub)" font-family="DM Mono,monospace">${esc(rows[0].date)}</text>
+      <text x="${W-pr}" y="${H-6}" font-size="9" fill="var(--sub)" text-anchor="end" font-family="DM Mono,monospace">${esc(last.date)}</text></svg>`;
+  }
+  const L=d.labels||['第二口座','定期','NISA'];
+  return `<h2>貯金 <button class="link" data-act="add-saving">＋ 貯金残高を記録</button></h2>
+  <section class="hero"><div class="label">貯金の合計（${esc(last?.date||'—')}）</div>
+   <div class="big num"><span class="yen">¥</span>${yen(last?.t||0)}</div>
+   ${prev?`<div class="hint num" style="margin:-8px 0 8px">前回から <span class="${diff<0?'neg':'pos'}">${diff>=0?'+':''}${yen(diff)}</span></div>`:''}
+   ${chart}
+   ${last?`<div class="chips">${['a','b','c'].map((k,i)=>`<div class="chip"><div class="k">${esc(L[i])}</div><div class="v num">${yen(last[k])}</div></div>`).join('')}</div>`:''}
+  </section>
+  <h2>貯金の記録</h2>
+  <div class="panel scroll"><table class="tbl"><thead><tr><th>日付</th>${L.map(l=>`<th>${esc(l)}</th>`).join('')}<th>合計</th><th></th></tr></thead><tbody>
+  ${rows.slice().reverse().map(r=>`<tr><td style="min-width:96px"><input data-doc="${P}" data-key="rows.${r.i}.date" data-t="text" placeholder="2026-10-20" value="${esc(r.date)}" aria-label="日付"></td>${['a','b','c'].map(k=>`<td style="min-width:88px">${numIn(P,`rows.${r.i}.${k}`,r[k])}</td>`).join('')}<td class="num" style="min-width:84px">${yen(r.t)}</td><td>${delBtn(P,'rows',r.i,'記録')}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+
+function viewFixed(){
+  const P='one/fixed';const d=S.one.fixed;
+  if(!d)return `<h2>サブスク・固定費</h2><div class="panel" style="padding-block:16px;text-align:center"><p class="hint" style="margin:0 0 10px">一覧はまだありません</p><button class="btn solid" data-act="init-fixed">一覧を作成</button></div>`;
+  const annual=sum(d.annual||[],x=>annualOf(x)),monthly=sum(d.monthly||[],x=>x.a),car=sum(d.car||[],x=>annualOf(x));
+  const list=(key,whenLabel)=>`<div class="panel">${(d[key]||[]).map((x,i)=>`<div class="item" style="grid-template-columns:${whenLabel?'92px ':''}1fr 96px 28px">${whenLabel?txtIn(P,`${key}.${i}.when`,x.when,`placeholder="${whenLabel}" aria-label="${whenLabel}" style="font-size:13px;color:var(--sub)"`):''}${txtIn(P,`${key}.${i}.n`,x.n,'aria-label="項目"')}${numIn(P,`${key}.${i}.a`,x.a,'aria-label="金額"')}${delBtn(P,key,i)}</div>`).join('')}</div>`;
+  return `
+  <h2 style="margin-top:32px">毎月カード払い（月割りしない） <button class="link" data-act="add-fixed" data-k="monthly">＋ 追加</button></h2>${list('monthly','').replace(/<\/div>$/,`<div class="kv"><label style="font-weight:700;color:var(--ink)">合計（毎月）</label><span class="num" style="text-align:right;font-size:17px;font-weight:500;padding:8px 34px 8px 0">${yen(monthly)}</span></div></div>`)}
+`;
+}
+function everyOf(x){if(n(x.every)>=1)return n(x.every);const m=/(\d+)\s*年に\s*1\s*回/.exec(x.when||'');return m?Math.max(1,+m[1]):1}
+function annualOf(x){const ev=everyOf(x);return x.unit==='month'?n(x.a)*12/ev:n(x.a)/ev}
+function cycleText(x){const ev=everyOf(x);return x.unit==='month'?(ev===1?'毎月':`${ev}か月ごと`):(ev===1?'毎年':`${ev}年ごと`)}
+function planSum(fid){const fx=S.one.fixed||{};const list=fid==='car'?(fx.car||[]):(fx.annual||[]);const year=sum(list,x=>annualOf(x));const mo=year/12,ts=getTsumi(fid),diff=ts-mo;
+  return `<div class="plan-sum"><div><span>年間の目安</span><b class="num">${yen(year)}</b></div><div><span>毎月の目安（年間÷12）</span><b class="num">${yen(mo)}</b></div><div><span>毎月の積立</span><b class="num">${yen(ts)}</b></div><p class="${diff<0?'neg':'hint'}">${diff<0?`積立が毎月 ${yen(-diff)}円 足りません`:`積立は毎月 ${yen(diff)}円 の余裕があります`}</p></div>`}
+function getTsumi(fid){const id=monthIds()[0];const t=id&&(S.months[id].tsumitate||[]).find(x=>x.fund===fid);return t?t.amount:0}
+function viewFunds(){
+  const P='one/funds';const d=S.one.funds;
+  if(!d)return `<div class="empty"><b>積立がありません</b>車関連費や通信費のように、毎月固定で貯めて大きな支払いに備えるお金を管理します。<div style="margin-top:16px"><button class="btn solid" data-act="init-funds">積立を作成</button></div></div>${viewFixed()}`;
+  const fx=S.one.fixed||{};
+  const plan={net:(fx.annual||[]),car:(fx.car||[])};
+  const fs=d.funds.map((f,fi)=>{
+    const c=fundCalc(f);
+    const rows=[...(n(f.opening)?[{date:'',n:'前からの繰越',a:n(f.opening),auto:true}]:[]),...c.dep.map(x=>({...x,auto:true,date:x.date})),...(f.entries||[]).map((e,j)=>({...e,j}))].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    return `<h2>${esc(f.name)} <span style="display:flex;gap:12px"><button class="link" data-act="add-fentry" data-f="${fi}" data-kind="out">＋ 支払い</button><button class="link" data-act="add-fentry" data-f="${fi}" data-kind="in">＋ 入金</button></span></h2>
+    <div class="panel" style="padding-block:12px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><span class="hint">いまの残高</span><span class="num ${c.balance<0?'neg':''}" style="font-size:28px">${yen(c.balance)}</span></div>
+      <div class="eq num" style="margin-top:8px"><span>毎月の積立（今月の画面で変更）</span><b>${yen(getTsumi(f.id))}</b><span>入金合計</span><b>${yen(c.inSum)}</b><span>支払い合計</span><b>${yen(c.outSum)}</b></div>
+      ${(()=>{const hk='hist-'+f.id,hop=S.ui.evOpen[hk]!==false;return `<div class="plan"><button class="ev-toggle ${hop?'open':''}" style="padding:10px 0" data-act="ev" data-k="${hk}" aria-expanded="${hop}"><span class="chev" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ev-title" style="font-size:14px;font-weight:400;color:var(--sub)">履歴</span><span></span><span class="ev-cnt">${rows.length}件</span></button>${hop?`<div class="items">${rows.map(r=>r.auto?`<div class="item w-date" style="grid-template-columns:52px minmax(0,1fr) auto;min-height:44px"><span class="hint" style="font-size:12px">${esc(r.date||'—')}</span><span>${esc(r.n)}</span><span class="num pos" style="text-align:right">+${yen(r.a)}</span></div>`:`<div class="item w-date" style="grid-template-columns:52px minmax(0,1fr) 84px 32px 24px">${txtIn(P,`funds.${fi}.entries.${r.j}.date`,r.date,'placeholder="日付" aria-label="日付" style="font-size:12px"')}${txtIn(P,`funds.${fi}.entries.${r.j}.n`,r.n,'placeholder="内容" aria-label="内容"')}${numIn(P,`funds.${fi}.entries.${r.j}.a`,r.a,'aria-label="金額"')}<button class="ev-cnt ${r.kind==='in'?'':'on'}" style="padding:4px 8px" data-act="fkind" data-f="${fi}" data-j="${r.j}" aria-label="入金と支払いを切り替え">${r.kind==='in'?'入':'出'}</button>${delBtn(P,`funds.${fi}.entries`,r.j)}</div>`).join('')||'<p class="hint">まだ記録はありません</p>'}</div>`:''}</div>`})()}
+      ${(f.id in plan)?(()=>{const k='plan-'+f.id,op=S.ui.evOpen[k]!==false,pl=plan[f.id]||[],ed=!!S.ui.open['planEdit-'+f.id],FP='one/fixed',PK=f.id==='car'?'car':'annual';return `<div class="plan"><button class="ev-toggle ${op?'open':''}" style="padding:10px 0" data-act="ev" data-k="${k}" aria-expanded="${op}"><span class="chev" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ev-title" style="font-size:14px;font-weight:400;color:var(--sub)">支払い予定</span><span></span><span class="ev-cnt">${pl.length}件</span></button>
+      ${op?`<div class="plan-edit-bar"><button class="link" data-act="open" data-k="planEdit-${f.id}">${ed?'完了':'編集'}</button></div>`:''}${op?(ed?`<div class="plan-list">${pl.map((x,i)=>`<div class="prow"><div class="prow-top">${txtIn(FP,`${PK}.${i}.n`,x.n,'placeholder="項目" aria-label="項目"')}${numIn(FP,`${PK}.${i}.a`,x.a,'aria-label="金額"')}${delBtn(FP,PK,i)}</div><div class="prow-cyc"><select class="sel" data-doc="${FP}" data-key="${PK}.${i}.every" data-t="int" aria-label="間隔">${[...Array(12)].map((_,k)=>`<option value="${k+1}" ${everyOf(x)===k+1?'selected':''}>${k+1}</option>`).join('')}</select><select class="sel" data-doc="${FP}" data-key="${PK}.${i}.unit" data-t="text" aria-label="単位"><option value="year" ${x.unit!=='month'?'selected':''}>年ごと</option><option value="month" ${x.unit==='month'?'selected':''}>か月ごと</option></select>${txtIn(FP,`${PK}.${i}.when`,x.when,'placeholder="時期メモ（例：5月）" aria-label="時期メモ" style="font-size:12px;color:var(--sub)"')}<span class="prow-mo num">月 ${yen(annualOf(x)/12)}</span></div></div>`).join('')||'<p class="hint" style="font-size:12px">支払い予定はまだありません</p>'}</div><div style="text-align:right;margin-top:4px"><button class="link" data-act="add-fixed" data-k="${PK}">＋ 支払い予定を追加</button></div>${planSum(f.id)}`:`<div class="plan-list">${pl.map(x=>`<div class="prow"><div class="prow-ro"><span class="prow-name">${esc(x.n||'（無題）')}</span><span class="num">${yen(x.a)}</span></div><div class="prow-ro sub"><span>${esc(cycleText(x))}${x.when?` ・ ${esc(x.when)}`:''}</span><span class="num">月 ${yen(annualOf(x)/12)}</span></div></div>`).join('')||'<p class="hint" style="font-size:12px">支払い予定はまだありません</p>'}</div>${planSum(f.id)}`):''}</div>`})():''}
+    </div>`}).join('');
+  return `${fs.replace('<h2>','<h2 style="margin-top:4px">')}
+  <p class="foot-note">毎月の積立は「今月」の積立欄の金額が自動で入ります。支払ったときは「＋ 支払い」で記録してください。</p>
+  ${viewFixed()}`;
+}
+
+function viewSheet(){
+  const s=S.ui.sheet;if(!s)return '';
+  const id=S.ui.month,m=S.months[id];if(!m)return '';
+  const envs=(m.envelopes||[]).map((e,i)=>({e,i})).filter(x=>!x.e.balanceMode);
+  return `<div class="sheet-bg" data-act="close-sheet"></div>
+  <form class="sheet" id="quick-form" aria-label="支出を追加"><div class="in">
+   <div style="display:flex;justify-content:space-between;align-items:center"><h3>支出を追加</h3><button type="button" class="link" data-act="close-sheet">閉じる</button></div>
+   <div class="pick" role="group" aria-label="封筒">${envs.map(({e,i})=>`<button type="button" data-act="pick-env" data-env="${i}" aria-pressed="${s.env===i}">${esc(e.name)}</button>`).join('')}</div>
+   <div class="box"><input id="q-amt" class="num" inputmode="decimal" placeholder="金額" autocomplete="off" style="text-align:left"></div>
+   <div class="box"><input id="q-name" placeholder="品目（例：スギ薬局）" autocomplete="off"></div>
+   <button class="btn solid" style="padding:14px" type="submit">${esc(S.months[id].label)} の ${esc(m.envelopes[s.env]?.name||'')} に追加</button>
+  </div></form>`;
+}
+
+function viewConfirm(){const c=S.ui.confirm;if(!c)return '';return `<div class="sheet-bg" data-act="confirm-cancel"></div><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dlg-msg"><p id="dlg-msg">${esc(c.msg)}</p><div class="dlg-btns"><button class="btn ghost" data-act="confirm-cancel">キャンセル</button><button class="btn danger" data-act="confirm-ok" id="dlg-ok">削除</button></div></div>`}
+/* ---------- render ---------- */
+function isEditing(){const a=document.activeElement;return a&&a.matches&&a.matches('#app input,#app select,#layer input')}
+let deferred=false;
+function render(force){
+  if(!force&&isEditing()){deferred=true;return}
+  deferred=false;
+  const app=$('#app');const y=window.scrollY;
+  const all=S.loaded.months&&S.loaded.bonus&&S.loaded.one;
+  let html;
+  if(S.ui.setup)html=viewSetup();
+  else if(S.err&&!all)html=`<div class="empty"><b>データに接続できません</b>${esc(S.err)}<div style="margin-top:14px"><button class="btn" data-act="setup-open">接続設定</button></div></div>`;
+  else if(!all)html=`<div class="empty"><b>家計簿を読み込み中…</b>保存されたデータを取得しています。</div>`;
+  else html=({month:viewMonth,bonus:viewBonus,cards:viewCards,funds:viewFunds,assets:viewAssets}[S.ui.tab]||viewMonth)();
+  if(!S.ui.setup&&all&&(syncState==='オフライン'||syncState==='未保存あり'))html=`<div class="sync-banner">${syncState==='オフライン'?'オフラインです。表示は前回読み込んだ内容です。':'保存できていない変更があります。電波のよい所で開き直すと再送します。'}</div>`+html;
+  app.innerHTML=html;
+  $('#tabs').innerHTML=TABS.map(([k,l,ic])=>k==='month'?`<button class="tab-center" data-act="tab" data-v="${k}" ${S.ui.tab===k?'aria-current="page"':''}><span class="orb"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span class="orb-l">${l}</span></span></button>`:`<button data-act="tab" data-v="${k}" ${S.ui.tab===k?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg>${l}</button>`).join('');
+  const showFab=all&&!S.ui.setup&&S.ui.tab==='month'&&S.months[S.ui.month];
+  $('#layer').innerHTML=(showFab&&!S.ui.sheet?`<button class="fab" data-act="quick"><span aria-hidden="true" style="font-size:20px;line-height:1">＋</span>支出</button>`:'')+viewSheet()+viewConfirm();
+  window.scrollTo(0,y);
+}
+document.addEventListener('focusout',e=>{if(e.target.id==='m-label-top'||e.target.id==='b-label-top'){S.ui.open.labelEdit=false;S.ui.open.bLabelEdit=false;setTimeout(()=>render(true),0);return}setTimeout(()=>{if(deferred&&!isEditing())render()},0)});
+
+/* ---------- input commits ---------- */
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.id==='sel-month'){S.ui.month=el.value;S.ui.open={};render(true);return}
+  if(el.id==='sel-bonus'){S.ui.bonus=el.value;render(true);return}
+  const path=el.dataset.doc,key=el.dataset.key;if(!path||!key)return;
+  const doc=docOf(path);if(!doc)return;
+  let v=el.value;
+  if(el.dataset.t==='int'){v=parseInt(v,10)||1}
+  else if(el.dataset.t==='num'){
+    if(v.trim()===''&&/balance$/.test(key))v=null;
+    else{v=evalAmount(v);if(v===null){toast('数字か「100+200」のような式で入力してください');el.value=getIn(doc,key)??'';return}}
+  }
+  setIn(doc,key,v);save(path);
+  setTimeout(()=>render(),0);
+});
+document.addEventListener('click',e=>{const i=e.target.closest('.date-pick input');if(i&&i.showPicker){try{i.showPicker()}catch(_){}}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.ui.confirm){S.ui.confirm=null;render(true);return}if((e.key==='Enter'||e.key===' ')&&e.target.matches('div.ev-row[data-act]')){e.preventDefault();e.target.click();return}if(e.key==='Enter'&&e.target.matches('#app input')){e.target.blur()}});
+
+/* ---------- actions ---------- */
+function nextMonthId(id){const m=/^(\d{4})-(\d{1,2})$/.exec(id);if(!m)return id+'-next';let y=+m[1],mo=+m[2]+1;if(mo>12){mo=1;y++}return `${y}-${String(mo).padStart(2,'0')}`}
+function periodDays(m){const a=Date.parse(m.start||''),b=Date.parse(m.end||'');if(isNaN(a)||isNaN(b)||b<a)return 0;return Math.round((b-a)/864e5)+1}
+function isoAdd(iso,{d=0,mo=0}){const t=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');if(!t)return '';const x=new Date(Date.UTC(+t[1],+t[2]-1+mo,+t[3]+d));return x.toISOString().slice(0,10)}
+function newMonthFrom(prevId){
+  const p=S.months[prevId],c=calcMonth(p);let id=nextMonthId(prevId);while(S.months[id])id=nextMonthId(id);
+  const st=p.end?isoAdd(p.end,{d:1}):'';
+  const m={label:id,days:p.days,salary:0,start:st,end:st?isoAdd(st,{mo:1,d:-1}):'',
+    envelopes:(p.envelopes||[]).map((e,i)=>({...clone(e),carry:e.carryRule==='none'?0:Math.round(c.E[i].cur),items:[],balance:e.balanceMode?null:e.balance})),
+    debits:(p.debits||[]).map(d=>({...clone(d),sorted:0,done:false})),tsumitate:clone(p.tsumitate||[]),createdAt:new Date().toISOString()};
+  S.months[id]=m;save('months/'+id);return id;
+}
+function blankMonth(){return {label:new Date().toISOString().slice(0,7),days:30,salary:0,tsumitate:[{fund:'car',name:'車関連費',amount:11000},{fund:'net',name:'通信費',amount:4000}],
+  envelopes:[{name:'生活費',manage:'PayPay',carry:0,alloc:30000,balanceMode:true,balance:null,carryRule:'none',items:[]},{name:'医療費',manage:'現金',carry:0,alloc:8000,items:[]},{name:'美容費',manage:'口座',carry:0,alloc:20000,items:[]},{name:'free貯金',manage:'口座',carry:0,alloc:0,rule:'rest',items:[]}],debits:[]}}
+function reorderEvents(id,idx){const ev=S.bonus[id].events;const open=idx.map(i=>S.ui.evOpen[id+':'+i]);S.bonus[id].events=idx.map(i=>ev[i]);open.forEach((o,n)=>{if(o===undefined)delete S.ui.evOpen[id+':'+n];else S.ui.evOpen[id+':'+n]=o});saveEv();save('bonus/'+id);render(true)}
+/* drag & drop for bonus events */
+let drag=null;
+document.addEventListener('pointerdown',e=>{
+  const g=e.target.closest('.grip');if(!g||e.button>0)return;
+  e.preventDefault();e.stopPropagation();
+  const list=[...document.querySelectorAll('#app .event[data-idx]')];const el=g.closest('.event');const from=list.indexOf(el);if(from<0)return;
+  const tops=list.map(x=>{const r=x.getBoundingClientRect();return {top:r.top+scrollY,h:r.height}});
+  drag={el,list,from,to:from,startY:e.clientY+scrollY,tops,step:tops[from].h+10,pid:e.pointerId,lastY:e.clientY,y0:e.clientY,moved:false};
+  try{g.setPointerCapture(e.pointerId)}catch(_){}
+  el.classList.add('dragging');document.body.classList.add('is-dragging');
+  list.forEach(x=>{if(x!==el)x.style.transition='transform .18s'});
+  autoScroll();
+},{passive:false});
+function dragUpdate(){
+  if(!drag)return;const {el,list,from,tops,step}=drag;
+  const y=drag.lastY+scrollY,dy=y-drag.startY;el.style.transform=`translateY(${dy}px)`;
+  const center=tops[from].top+tops[from].h/2+dy;let to=from;
+  list.forEach((x,i)=>{if(i===from)return;const mid=tops[i].top+tops[i].h/2;let t=0;
+    if(i<from&&center<mid){t=step;to=Math.min(to,i)}
+    if(i>from&&center>mid){t=-step;to=Math.max(to,i)}
+    x.style.transform=t?`translateY(${t}px)`:'';});
+  drag.to=to;
+}
+document.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.pid)return;e.preventDefault();drag.lastY=e.clientY;if(Math.abs(e.clientY-drag.y0)>8)drag.moved=true;dragUpdate()},{passive:false});
+function autoScroll(){if(!drag)return;if(!drag.moved){requestAnimationFrame(autoScroll);return}const y=drag.lastY,H=innerHeight,edge=90,bottomEdge=H-90-64;let v=0;if(y<edge)v=-Math.ceil((edge-y)/6);else if(y>bottomEdge)v=Math.ceil((y-bottomEdge)/6);if(v){scrollBy(0,v);dragUpdate()}requestAnimationFrame(autoScroll)}
+function endDrag(e){if(!drag||(e&&e.pointerId!==drag.pid))return;const {el,list,from,to}=drag;drag=null;
+  list.forEach(x=>{x.style.transform='';x.style.transition=''});el.classList.remove('dragging');document.body.classList.remove('is-dragging');
+  if(to!==from){const id=S.ui.bonus,n=S.bonus[id].events.length;const idx=[...Array(n).keys()];idx.splice(from,1);idx.splice(to,0,from);reorderEvents(id,idx)}}
+document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
+let armed=null;
+document.addEventListener('click',e=>{
+  if(e.target.closest('.grip'))return;
+  const b=e.target.closest('[data-act]');if(!b)return;
+  const a=b.dataset.act,P=b.dataset.doc;
+  const cur=()=>S.months[S.ui.month];
+  switch(a){
+   case 'setup-open':S.ui.setup=true;S.ui.setupMsg='';render(true);window.scrollTo(0,0);break;
+   case 'setup-close':S.ui.setup=false;render(true);break;
+   case 'setup-connect':{const url=$('#cfg-url').value.trim(),key=$('#cfg-key').value.trim();S.ui.setupDraft={url,key};
+     if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(url)){S.ui.setupMsg='URLは https://script.google.com/… で始まるものを入れてください。';render(true);break}
+     if(!key){S.ui.setupMsg='合言葉を入れてください。';render(true);break}
+     S.ui.setupMsg='接続しています…';render(true);
+     api.load({url,key}).then(docs=>{setCfg({url,key});S.db=makeDb({url,key});S.err=null;
+       const n=Object.keys(docs).length;
+       if(n){S.months={};S.bonus={};S.one={};applyDocs(docs);S.ui.setup=false;setSync('最新');toast('接続しました');render(true)}
+       else{S.months={};S.bonus={};S.one={};applyDocs({});S.ui.setupMsg='接続できました。スプレッドシートはまだ空なので、下の「ファイルを取り込む」で kakeibo-data.json を読み込んでください。';render(true)}
+     }).catch(e=>{S.ui.setupMsg=e?.code==='bad_key'?'合言葉が違います。プログラムの SECRET と同じものを入れてください。':'接続できませんでした。URLと、デプロイの「アクセスできるユーザー：全員」を確認してください。';render(true)});
+     break}
+   case 'setup-export':{const docs={};['months','bonus','one'].forEach(c=>Object.entries(S[c]).forEach(([id,v])=>{docs[c+'/'+id]=v}));
+     const blob=new Blob([JSON.stringify({format:'kakeibo-backup-1',exportedAt:new Date().toISOString(),docs},null,1)],{type:'application/json'});
+     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kakeibo-data-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);break}
+   case 'tab':if(getCfg()&&S.loaded.months)S.ui.setup=false;S.ui.tab=b.dataset.v;S.ui.sheet=null;try{localStorage.setItem('kk.tab',S.ui.tab)}catch(_){};render(true);window.scrollTo(0,0);break;
+   case 'ev-sort':{const id=S.ui.bonus,ev=S.bonus[id].events;const idx=ev.map((e,i)=>i).sort((a,c)=>{const da=ev[a].date||'\uffff',dc=ev[c].date||'\uffff';return da<dc?-1:da>dc?1:a-c});reorderEvents(id,idx);toast('日付順に並べました');break}
+   case 'clear-end':{const bo=S.bonus[S.ui.bonus];delete bo.events[+b.dataset.ev].dateEnd;save('bonus/'+S.ui.bonus);render(true);break}
+   case 'blabel-edit':S.ui.open.bLabelEdit=true;render(true);setTimeout(()=>{const i=$('#b-label-top');if(i){i.focus();i.select()}},30);break;
+   case 'label-edit':S.ui.open.labelEdit=true;render(true);setTimeout(()=>{const i=$('#m-label-top');if(i){i.focus();i.select()}},30);break;
+   case 'open':S.ui.open[b.dataset.k]=!S.ui.open[b.dataset.k];render(true);break;
+   case 'toggle':{const d=docOf(P);setIn(d,b.dataset.key,!getIn(d,b.dataset.key));save(P);render(true);break}
+   case 'del':{const d=docOf(P);const it=getIn(d,b.dataset.arr)?.[+b.dataset.idx];const nm=it?(it.n||it.name||it.title||it.date||''):'';S.ui.confirm={kind:'item',P,arr:b.dataset.arr,idx:+b.dataset.idx,msg:nm?`「${nm}」を削除しますか？`:'この行を削除しますか？'};render(true);break}
+   case 'del-doc':{const d=docOf(P);S.ui.confirm={kind:'doc',P,msg:`「${d?.label||''}」をまるごと削除しますか？中の記録もすべて消えます。`};render(true);break}
+   case 'confirm-cancel':S.ui.confirm=null;render(true);break;
+   case 'confirm-ok':{const c=S.ui.confirm;S.ui.confirm=null;if(!c)break;
+     if(c.kind==='item'){const d=docOf(c.P);const arr=getIn(d,c.arr);if(arr){arr.splice(c.idx,1);save(c.P)}}
+     else{remove(c.P);S.ui.month=null;S.ui.bonus=null;toast('削除しました')}
+     render(true);break}
+   case 'first-month':{const id=new Date().toISOString().slice(0,7);S.months[id]=blankMonth();S.months[id].label=id;save('months/'+id);S.ui.month=id;render(true);break}
+   case 'new-month':{const id=newMonthFrom(monthIds()[0]);S.ui.month=id;S.ui.open={};toast(`${id} を作成しました。給与を入れてください`);render(true);window.scrollTo(0,0);break}
+   case 'add-debit':cur().debits=cur().debits||[];cur().debits.push({name:'新しい引落し',manage:'',amount:0,sorted:0,done:false});save('months/'+S.ui.month);render(true);break;
+   case 'add-account':if(!S.one.assets)S.one.assets={accounts:[]};S.one.assets.accounts.push({n:'口座',a:0});save('one/assets');render(true);break;
+   case 'quick':{const m=cur();if(!m)break;let i=b.dataset.env!=null?+b.dataset.env:(S.ui.lastEnv??(m.envelopes||[]).findIndex(x=>!x.balanceMode));if(m.envelopes[i]?.balanceMode)i=(m.envelopes||[]).findIndex(x=>!x.balanceMode);S.ui.sheet={env:i};render(true);setTimeout(()=>$('#q-amt')?.focus(),50);break}
+   case 'pick-env':S.ui.sheet.env=+b.dataset.env;document.querySelectorAll('.pick button').forEach(x=>x.setAttribute('aria-pressed',x===b));const sb=$('#quick-form button[type=submit]');if(sb)sb.textContent=`${cur().label} の ${cur().envelopes[S.ui.sheet.env].name} に追加`;break;
+   case 'close-sheet':S.ui.sheet=null;render(true);break;
+   case 'new-bonus':{const prev=latestBonus();const ids=Object.keys(S.bonus);const id='b'+Date.now().toString(36);
+     const pc=prev?calcBonus(prev):null;
+     S.bonus[id]={label:'新しい賞与',period:'',base:0,carry:0,saving:100000,events:[],createdAt:new Date().toISOString()};
+     save('bonus/'+id);S.ui.bonus=id;toast('作成しました');render(true);break}
+   case 'ev':if(b.classList.contains('is-open')&&e.target.closest('input,.date-pick'))break;S.ui.evOpen[b.dataset.k]=b.getAttribute('aria-expanded')!=='true';if(b.dataset.k==='acc')S.ui.open.accEdit=false;saveEv();render(true);break;
+   case 'ev-all':{const id=S.ui.bonus;(S.bonus[id].events||[]).forEach((_,i)=>S.ui.evOpen[id+':'+i]=b.dataset.v==='1');saveEv();render(true);break}
+   case 'add-event':{const bo=S.bonus[S.ui.bonus];bo.events=bo.events||[];bo.events.push({date:'',title:'',items:[{n:'',a:0,done:false}]});S.ui.evOpen[S.ui.bonus+':'+(bo.events.length-1)]=true;save('bonus/'+S.ui.bonus);render(true);break}
+   case 'add-bitem':{const bo=S.bonus[S.ui.bonus];bo.events[+b.dataset.ev].items.push({n:'',a:0,done:false});save('bonus/'+S.ui.bonus);render(true);break}
+   case 'init-cards':S.one.cards={cards:['Olive','NL','PayPay','その他'].map(n=>({name:n,items:[]}))};save('one/cards');render(true);break;
+   case 'add-citem':S.one.cards.cards[+b.dataset.c].items.push({date:'',n:'',a:0,done:false});S.ui.cardsShowDone=S.ui.cardsShowDone;save('one/cards');render(true);break;
+   case 'csrc':{const it=S.one.cards.cards[+b.dataset.c].items[+b.dataset.j];it.src=it.src===b.dataset.v?'':b.dataset.v;save('one/cards');render(true);break}
+   case 'cards-done':S.ui.cardsShowDone=b.dataset.v==='1';render(true);break;
+   case 'init-savings':S.one.savings={rows:[],labels:['第二口座','定期','NISA']};save('one/savings');render(true);break;
+   case 'add-saving':{const d=S.one.savings;const rs=(d.rows||[]).slice().sort((x,y)=>String(x.date).localeCompare(String(y.date)));const l=rs[rs.length-1]||{a:0,b:0,c:0};d.rows.push({date:new Date(Date.now()+9*3600e3).toISOString().slice(0,10),a:l.a,b:l.b,c:l.c});save('one/savings');toast('前回の値をコピーしました。今の残高に直してください');render(true);break}
+   case 'init-funds':S.one.funds={funds:[{id:'car',name:'車関連費',opening:0,entries:[]},{id:'net',name:'通信費',opening:0,entries:[]}]};save('one/funds');render(true);break;
+   case 'add-fentry':S.one.funds.funds[+b.dataset.f].entries.push({date:new Date(Date.now()+9*3600e3).toISOString().slice(0,10),n:'',a:0,kind:b.dataset.kind});save('one/funds');render(true);break;
+   case 'fkind':{const e=S.one.funds.funds[+b.dataset.f].entries[+b.dataset.j];e.kind=e.kind==='in'?'out':'in';save('one/funds');render(true);break}
+   case 'init-fixed':S.one.fixed={annual:[],monthly:[],car:[]};save('one/fixed');render(true);break;
+   case 'add-fixed':if(!S.one.fixed)S.one.fixed={annual:[],monthly:[],car:[]};(S.one.fixed[b.dataset.k]=S.one.fixed[b.dataset.k]||[]).push({when:'',n:'',a:0,every:1,unit:'year'});save('one/fixed');render(true);break;
+  }
+});
+document.addEventListener('submit',e=>{
+  if(e.target.id!=='quick-form')return;e.preventDefault();
+  const amt=evalAmount($('#q-amt').value),name=$('#q-name').value.trim();
+  if(!amt){toast('金額を入れてください');$('#q-amt').focus();return}
+  const m=S.months[S.ui.month],env=m.envelopes[S.ui.sheet.env];
+  env.items=env.items||[];env.items.push({n:name||'支出',a:amt});S.ui.lastEnv=S.ui.sheet.env;
+  save('months/'+S.ui.month);S.ui.sheet=null;document.activeElement?.blur();
+  toast(`${env.name} に ${yen(amt)}円 を追加しました`);render(true);
+});
+
+document.addEventListener('change',async e=>{
+  if(e.target.id!=='imp-file')return;const f=e.target.files&&e.target.files[0];if(!f)return;
+  const cfg=getCfg();if(!cfg){S.ui.setupMsg='先に上で接続してください。';render(true);return}
+  try{const j=JSON.parse(await f.text());const docs=j.docs||j;if(!docs||typeof docs!=='object'||!Object.keys(docs).length)throw 0;
+    S.ui.setupMsg='取り込んでいます…';render(true);
+    await api.post(cfg,{op:'import',docs});
+    await reload();S.ui.setup=false;toast(`${Object.keys(docs).length}件のデータを取り込みました`);render(true);
+  }catch(err){S.ui.setupMsg='取り込めませんでした。kakeibo-data.json を選んでいるか確認してください。';render(true)}
+});
+/* ---------- boot ---------- */
+(()=>{
+  try{const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');if(c){S.months=c.months||{};S.bonus=c.bonus||{};S.one=c.one||{};S.loaded={months:true,bonus:true,one:true}}}catch(e){}
+  const cfg=getCfg();
+  if(cfg){S.db=makeDb(cfg);reload()}else{S.ui.setup=true}
+  render(true);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reload(true)});
+  window.addEventListener('online',()=>{retryFailed();reload(true)});
+})();
+})();
+</script>
+
+</body>
+</html>

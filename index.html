@@ -190,6 +190,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 .tb{font-size:12px;color:var(--sub);border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px}
 .grip{width:22px;height:40px;display:inline-flex;align-items:center;justify-content:flex-start;color:var(--sub);cursor:grab;touch-action:none;opacity:.6;margin-left:-4px}
 .grip svg{fill:currentColor}
+.row.dragging{position:relative;z-index:5;background:var(--card);box-shadow:0 10px 28px rgba(0,0,0,.18)}
 .event.dragging{position:relative;z-index:5;box-shadow:0 10px 28px rgba(0,0,0,.18);opacity:1!important}
 body.is-dragging{user-select:none;-webkit-user-select:none;cursor:grabbing}
 div.ev-row[data-act]{cursor:pointer}
@@ -393,7 +394,7 @@ function migrateMonth(m){
   const pp=(m.debits||[]).filter(d=>d.name==='PayPay');
   if(pp.length>1){pp.slice(0,-1).forEach(d=>{d.name='PayPayカード'});const l=pp[pp.length-1];if(!l.manage)l.manage='チャージ'}
   const ds=m.debits||[],ci=ds.findIndex(d=>d.name==='PayPay'&&d.manage==='チャージ'),mi=ds.findIndex(d=>/母送金/.test(d.name||''));
-  if(ci>=0&&mi>=0&&ci!==mi+1){const [c]=ds.splice(ci,1);ds.splice(ds.findIndex(d=>/母送金/.test(d.name||''))+1,0,c)}
+  if(!m.debitOrderSet&&ci>=0&&mi>=0&&ci!==mi+1){const [c]=ds.splice(ci,1);ds.splice(ds.findIndex(d=>/母送金/.test(d.name||''))+1,0,c)}
 }
 function calcMonth(m){
   migrateMonth(m);
@@ -429,10 +430,11 @@ function calcMonth(m){
 const accList=()=>S.one.assets?.accounts||[];
 function ensureAccIds(){let ch=false;accList().forEach(a=>{if(!a.id){a.id='a'+Math.random().toString(36).slice(2,8);ch=true}});if(ch)save('one/assets')}
 function accById(id){return accList().find(a=>a.id===id)}
-function syncAcc(it){
+function syncAcc(it,debit){
   const o=it.accOn&&accById(it.accOn);if(o)o.a=n(o.a)+n(it.accA);
+  const amt=debit?(it.done?n(it.amount):0):n(it.a);
   const a=it.acc&&accById(it.acc);
-  if(a){a.a=n(a.a)-n(it.a);it.accOn=it.acc;it.accA=n(it.a)}else{it.accOn='';it.accA=0}
+  if(a&&amt){a.a=n(a.a)-amt;it.accOn=it.acc;it.accA=amt}else{it.accOn='';it.accA=0}
   save('one/assets');
 }
 function releaseAcc(it){if(!it)return;const o=it.accOn&&accById(it.accOn);if(o){o.a=n(o.a)+n(it.accA);save('one/assets')}}
@@ -475,10 +477,12 @@ function viewMonth(){
       <span class="bar"><i class="${r.cur<0?'over':''}" style="width:${pct}%"></i></span>
     </button>${body}</div>`;
   }).join('');
-  const debits=(m.debits||[]).map((d,i)=>`<div class="row" style="grid-template-columns:1fr auto auto">
+  const debits=(m.debits||[]).map((d,i)=>`<div class="row" data-didx="${i}" style="grid-template-columns:${S.ui.open.debEdit?'auto ':''}1fr auto auto">
+     ${S.ui.open.debEdit?`<span class="grip" data-grip="${i}" role="button" aria-label="ドラッグして並べ替え"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>`:''}
      <div class="name">${S.ui.open.debEdit?`${txtIn(P,`debits.${i}.name`,d.name,'aria-label="名前"')}${txtIn(P,`debits.${i}.manage`,d.manage,'placeholder="メモ・日付" aria-label="メモ" style="font-size:12px;color:var(--sub)"')}`:`<div>${esc(d.name)}</div><div class="meta">${esc(fmtDate(d.manage))}${sortedOf(m,d)?`${d.manage?' · ':''}振分け済 −${yen(sortedOf(m,d))}`:''}${bonusCardSum(m,d)?`（うち賞与から支払い ${yen(bonusCardSum(m,d))}）`:''}</div>`}</div>
      <div style="width:${S.ui.open.debEdit?'120':'104'}px">${S.ui.open.debEdit?`<label class="dfield"><span>引落し額</span>${numIn(P,`debits.${i}.amount`,d.amount,'aria-label="引落し額"')}</label><label class="dfield"><span>振分け済</span>${numIn(P,`debits.${i}.sorted`,d.sorted,'aria-label="振分け済（手入力分）" placeholder="0"')}</label>${bonusCardSum(m,d)?`<div class="meta num" style="font-size:11px;text-align:right">＋賞与から ${yen(bonusCardSum(m,d))}</div>`:''}`:numIn(P,`debits.${i}.amount`,d.amount,'aria-label="引落し額"')}${!S.ui.open.debEdit&&sortedOf(m,d)?`<div class="alloc-line num"><span>今月割当</span> ${yen(n(d.amount)-sortedOf(m,d))}</div>`:''}</div>
      ${S.ui.open.debEdit?delBtn(P,'debits',i):stamp(P,`debits.${i}.done`,d.done,'sm')}
+     <div class="acc-pick" role="group" aria-label="引落元の口座">${accBtns(`data-doc="${P}" data-key="debits.${i}.acc"`,d.acc,'set-acc')}</div>
    </div>`).join('');
   return `
   <div class="top"><div style="display:flex;align-items:center;gap:4px;min-width:0;flex:1">${S.ui.open.labelEdit?`<input id="m-label-top" class="period-in" data-doc="${P}" data-key="label" data-t="text" value="${esc(m.label)}" aria-label="期間の名前" enterkeyhint="done">`:`<select class="period" id="sel-month" aria-label="月を選ぶ">${ids.map(x=>`<option value="${x}" ${x===id?'selected':''}>${esc(S.months[x].label||x)}</option>`).join('')}</select><button class="del" style="color:var(--sub)" data-act="label-edit" aria-label="期間の名前を変更"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`}</div>
@@ -745,8 +749,10 @@ document.addEventListener('change',e=>{
     else toast('資産に「SMBC」の口座がないため、給与は資産に反映されません');
   }
   setIn(doc,key,v);save(path);
-  const mm=/^(.*(?:items|extras).d+).(a|acc)$/.exec(key);
+  const mm=/^(.*(?:items|extras)[.][0-9]+)[.](a|acc)$/.exec(key);
   if(mm&&path.startsWith('months/')){const it=getIn(doc,mm[1]);if(it&&(it.acc||it.accOn))syncAcc(it)}
+  const dm=/^(debits[.][0-9]+)[.]amount$/.exec(key);
+  if(dm&&path.startsWith('months/')){const d=getIn(doc,dm[1]);if(d&&(d.acc||d.accOn))syncAcc(d,true)}
   setTimeout(()=>render(),0);
 });
 document.addEventListener('click',e=>{const i=e.target.closest('.date-pick input');if(i&&i.showPicker){try{i.showPicker()}catch(_){}}});
@@ -761,21 +767,22 @@ function newMonthFrom(prevId){
   const st=p.end?isoAdd(p.end,{d:1}):'';
   const m={label:id,days:p.days,salary:0,salaryApplied:0,start:st,end:st?isoAdd(st,{mo:1,d:-1}):'',
     envelopes:(p.envelopes||[]).map((e,i)=>({...clone(e),carry:Math.round(c.E[i].cur),items:[],balance:e.balanceMode?null:e.balance})),
-    extras:[],debits:(p.debits||[]).map(d=>({...clone(d),sorted:0,done:false})),tsumitate:clone(p.tsumitate||[]),createdAt:new Date().toISOString()};
+    extras:[],debits:(p.debits||[]).map(d=>({...clone(d),sorted:0,done:false,accOn:'',accA:0})),tsumitate:clone(p.tsumitate||[]),createdAt:new Date().toISOString()};
   S.months[id]=m;save('months/'+id);return id;
 }
 function blankMonth(){return {label:new Date().toISOString().slice(0,7),days:30,salary:0,tsumitate:[{fund:'car',name:'車関連費',amount:11000},{fund:'net',name:'通信費',amount:4000}],
   debits:[{name:'PayPay',manage:'チャージ',amount:30000,sorted:0,done:false}],
   envelopes:[{name:'医療費',manage:'現金',carry:0,alloc:8000,items:[]},{name:'美容費',manage:'口座',carry:0,alloc:20000,items:[]}]}}
 function reorderEvents(id,idx){const ev=S.bonus[id].events;const open=idx.map(i=>S.ui.evOpen[id+':'+i]);S.bonus[id].events=idx.map(i=>ev[i]);open.forEach((o,n)=>{if(o===undefined)delete S.ui.evOpen[id+':'+n];else S.ui.evOpen[id+':'+n]=o});saveEv();save('bonus/'+id);render(true)}
-/* drag & drop for bonus events */
+function reorderDebits(idx){const m=S.months[S.ui.month];m.debits=idx.map(i=>m.debits[i]);m.debitOrderSet=true;save('months/'+S.ui.month);render(true)}
+/* drag & drop for bonus events / debits */
 let drag=null;
 document.addEventListener('pointerdown',e=>{
   const g=e.target.closest('.grip');if(!g||e.button>0)return;
   e.preventDefault();e.stopPropagation();
-  const list=[...document.querySelectorAll('#app .event[data-idx]')];const el=g.closest('.event');const from=list.indexOf(el);if(from<0)return;
+  const el=g.closest('.event,.row[data-didx]');if(!el)return;const kind=el.classList.contains('event')?'event':'debit';const list=[...document.querySelectorAll(kind==='event'?'#app .event[data-idx]':'#app .row[data-didx]')];const from=list.indexOf(el);if(from<0)return;
   const tops=list.map(x=>{const r=x.getBoundingClientRect();return {top:r.top+scrollY,h:r.height}});
-  drag={el,list,from,to:from,startY:e.clientY+scrollY,tops,step:tops[from].h+10,pid:e.pointerId,lastY:e.clientY,y0:e.clientY,moved:false};
+  drag={el,kind,list,from,to:from,startY:e.clientY+scrollY,tops,step:tops[from].h+(kind==='event'?10:0),pid:e.pointerId,lastY:e.clientY,y0:e.clientY,moved:false};
   try{g.setPointerCapture(e.pointerId)}catch(_){}
   el.classList.add('dragging');document.body.classList.add('is-dragging');
   list.forEach(x=>{if(x!==el)x.style.transition='transform .18s'});
@@ -793,9 +800,9 @@ function dragUpdate(){
 }
 document.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.pid)return;e.preventDefault();drag.lastY=e.clientY;if(Math.abs(e.clientY-drag.y0)>8)drag.moved=true;dragUpdate()},{passive:false});
 function autoScroll(){if(!drag)return;if(!drag.moved){requestAnimationFrame(autoScroll);return}const y=drag.lastY,H=innerHeight,edge=90,bottomEdge=H-90-64;let v=0;if(y<edge)v=-Math.ceil((edge-y)/6);else if(y>bottomEdge)v=Math.ceil((y-bottomEdge)/6);if(v){scrollBy(0,v);dragUpdate()}requestAnimationFrame(autoScroll)}
-function endDrag(e){if(!drag||(e&&e.pointerId!==drag.pid))return;const {el,list,from,to}=drag;drag=null;
+function endDrag(e){if(!drag||(e&&e.pointerId!==drag.pid))return;const {el,kind,list,from,to}=drag;drag=null;
   list.forEach(x=>{x.style.transform='';x.style.transition=''});el.classList.remove('dragging');document.body.classList.remove('is-dragging');
-  if(to!==from){const id=S.ui.bonus,n=S.bonus[id].events.length;const idx=[...Array(n).keys()];idx.splice(from,1);idx.splice(to,0,from);reorderEvents(id,idx)}}
+  if(to!==from){const id=S.ui.bonus,n=kind==='event'?S.bonus[id].events.length:(S.months[S.ui.month].debits||[]).length;const idx=[...Array(n).keys()];idx.splice(from,1);idx.splice(to,0,from);if(kind==='event')reorderEvents(id,idx);else reorderDebits(idx)}}
 document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
 let armed=null;
 document.addEventListener('click',e=>{
@@ -825,7 +832,7 @@ document.addEventListener('click',e=>{
    case 'blabel-edit':S.ui.open.bLabelEdit=true;render(true);setTimeout(()=>{const i=$('#b-label-top');if(i){i.focus();i.select()}},30);break;
    case 'label-edit':S.ui.open.labelEdit=true;render(true);setTimeout(()=>{const i=$('#m-label-top');if(i){i.focus();i.select()}},30);break;
    case 'open':S.ui.open[b.dataset.k]=!S.ui.open[b.dataset.k];render(true);break;
-   case 'toggle':{const d=docOf(P);setIn(d,b.dataset.key,!getIn(d,b.dataset.key));save(P);render(true);break}
+   case 'toggle':{const d=docOf(P);setIn(d,b.dataset.key,!getIn(d,b.dataset.key));const tm=/^(debits[.][0-9]+)[.]done$/.exec(b.dataset.key);if(tm){const x=getIn(d,tm[1]);if(x&&(x.acc||x.accOn))syncAcc(x,true)}save(P);render(true);break}
    case 'del':{const d=docOf(P);const it=getIn(d,b.dataset.arr)?.[+b.dataset.idx];const nm=it?(it.n||it.name||it.title||it.date||''):'';S.ui.confirm={kind:'item',P,arr:b.dataset.arr,idx:+b.dataset.idx,msg:nm?`「${nm}」を削除しますか？`:'この行を削除しますか？'};render(true);break}
    case 'del-doc':{const d=docOf(P);S.ui.confirm={kind:'doc',P,msg:`「${d?.label||''}」をまるごと削除しますか？中の記録もすべて消えます。`};render(true);break}
    case 'confirm-cancel':S.ui.confirm=null;render(true);break;
@@ -840,7 +847,7 @@ document.addEventListener('click',e=>{
    case 'quick':{const m=cur();if(!m)break;let i=b.dataset.env!=null?+b.dataset.env:(S.ui.lastEnv??(m.envelopes||[]).findIndex(x=>!x.balanceMode));if(m.envelopes[i]?.balanceMode)i=(m.envelopes||[]).findIndex(x=>!x.balanceMode);S.ui.sheet={env:i,acc:accById(S.ui.lastAcc)?S.ui.lastAcc:''};render(true);setTimeout(()=>$('#q-amt')?.focus(),50);break}
    case 'pick-env':S.ui.sheet.env=+b.dataset.env;document.querySelectorAll('.pick button').forEach(x=>x.setAttribute('aria-pressed',x===b));const sb=$('#quick-form button[type=submit]');if(sb)sb.textContent=`${cur().label} の ${(S.ui.sheet.env===-1?'予算外':cur().envelopes[S.ui.sheet.env].name)} に追加`;break;
    case 'pick-acc':S.ui.sheet.acc=b.dataset.acc;document.querySelectorAll('.pick.acc button').forEach(x=>x.setAttribute('aria-pressed',x===b));break;
-   case 'set-acc':{const doc=docOf(P),key=b.dataset.key,mm=/^(.*).acc$/.exec(key);if(!doc||!mm)break;setIn(doc,key,b.dataset.acc);const it=getIn(doc,mm[1]);if(it)syncAcc(it);save(P);render(true);break}
+   case 'set-acc':{const doc=docOf(P),key=b.dataset.key,mm=/^(.*)[.]acc$/.exec(key);if(!doc||!mm)break;setIn(doc,key,b.dataset.acc);const it=getIn(doc,mm[1]);if(it)syncAcc(it,/^debits[.][0-9]+$/.test(mm[1]));save(P);render(true);break}
    case 'close-sheet':S.ui.sheet=null;render(true);break;
    case 'new-bonus':{const prev=latestBonus();const ids=Object.keys(S.bonus);const id='b'+Date.now().toString(36);
      const pc=prev?calcBonus(prev):null;

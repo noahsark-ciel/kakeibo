@@ -594,7 +594,7 @@ function viewBonus(){
     <div class="kv"><label>貯金</label>${numIn(P,'saving',b.saving)}</div>
   </div>`}
   <h2>予定 <button class="link" data-act="add-event">＋ 追加</button></h2>
-  <div class="toolbar"><button class="tb" data-act="ev-sort">日付順に並べる</button><button class="tb" data-act="ev-all" data-v="0">すべて閉じる</button><button class="tb" data-act="ev-all" data-v="1">すべて開く</button></div>
+  <div class="toolbar"><button class="tb" data-act="ev-sort">日付順に並べる</button><button class="tb" data-act="ev-undone">未完了を上に</button><button class="tb" data-act="ev-all" data-v="0">すべて閉じる</button><button class="tb" data-act="ev-all" data-v="1">すべて開く</button></div>
   ${ev||'<p class="hint">予定はまだありません</p>'}
   <div style="margin-top:20px;text-align:center"><button class="del" style="width:auto;padding:0 12px;font-size:12px" data-act="del-doc" data-doc="${P}">この賞与を削除</button></div>`;
 }
@@ -830,6 +830,7 @@ document.addEventListener('click',e=>{
      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kakeibo-data-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);break}
    case 'tab':{const prev=S.ui.setup?null:S.ui.tab;(S.ui.scroll=S.ui.scroll||{});if(prev)S.ui.scroll[prev]=window.scrollY;if(getCfg()&&S.loaded.months)S.ui.setup=false;S.ui.tab=b.dataset.v;S.ui.sheet=null;try{localStorage.setItem('kk.tab',S.ui.tab)}catch(_){};render(true);window.scrollTo(0,S.ui.scroll[S.ui.tab]||0);break}
    case 'ev-sort':{const id=S.ui.bonus,ev=S.bonus[id].events;const idx=ev.map((e,i)=>i).sort((a,c)=>{const da=ev[a].date||'\uffff',dc=ev[c].date||'\uffff';return da<dc?-1:da>dc?1:a-c});reorderEvents(id,idx);toast('日付順に並べました');break}
+   case 'ev-undone':{const id=S.ui.bonus,ev=S.bonus[id].events;const fin=e=>{const its=e.items||[];return its.length>0&&its.every(x=>x.done)?1:0};const idx=ev.map((e,i)=>i).sort((a,c)=>fin(ev[a])-fin(ev[c])||a-c);reorderEvents(id,idx);toast('未完了を上に並べました');break}
    case 'clear-end':{const bo=S.bonus[S.ui.bonus];delete bo.events[+b.dataset.ev].dateEnd;save('bonus/'+S.ui.bonus);render(true);break}
    case 'blabel-edit':S.ui.open.bLabelEdit=true;render(true);setTimeout(()=>{const i=$('#b-label-top');if(i){i.focus();i.select()}},30);break;
    case 'label-edit':S.ui.open.labelEdit=true;render(true);setTimeout(()=>{const i=$('#m-label-top');if(i){i.focus();i.select()}},30);break;

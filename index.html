@@ -366,7 +366,14 @@ function cardsPending(){const c=S.one.cards?.cards||[];return sum(c.flatMap(x=>x
 function cardForDebit(name){const cs=S.one.cards?.cards||[];return cs.find(c=>c.name===name)||cs.find(c=>name&&(name.startsWith(c.name)||c.name.startsWith(name.replace(/カード$/,''))))}
 function bonusCardSum(m,d){if(!m.start||!m.end)return 0;const c=cardForDebit(d.name);if(!c)return 0;return sum((c.items||[]).filter(i=>i.src==='bonus'&&i.date&&i.date>=m.start&&i.date<=m.end),i=>i.a)}
 function sortedOf(m,d){return n(d.sorted)+bonusCardSum(m,d)}
+function prevMonthOf(m){const id=Object.keys(S.months).find(k=>S.months[k]===m);if(id==null)return null;const p=Object.keys(S.months).filter(k=>k<id).sort().pop();return p==null?null:S.months[p]}
+function carryOf(m,e,i,prevCalc){
+  if(!prevCalc)return n(e.carry);
+  const pe=(prevCalc.m.envelopes||[]);let j=pe.findIndex(x=>x.name===e.name);if(j<0)j=i<pe.length?i:-1;
+  return j<0?n(e.carry):Math.round(prevCalc.E[j].cur);
+}
 function calcMonth(m){
+  const pm=prevMonthOf(m),prevCalc=pm?{...calcMonth(pm),m:pm}:null;
   const envs=m.envelopes||[];const debits=m.debits||[];
   const debitAlloc=sum(debits,d=>n(d.amount)-sortedOf(m,d));
   const envAlloc=envs.map(e=>e.rule==='perDay'?n(m.days)*n(e.rate||1000):e.rule==='rest'?0:n(e.alloc));
@@ -375,11 +382,12 @@ function calcMonth(m){
   const start=n(m.salary)-allocTotal;
   const E=envs.map((e,i)=>{
     const alloc=e.rule==='rest'?start:envAlloc[i];
-    const total=n(e.carry)+alloc;
+    const carry=carryOf(m,e,i,prevCalc);
+    const total=carry+alloc;
     let spent,cur;
     if(e.balanceMode){cur=e.balance==null||e.balance===''?0:n(e.balance);spent=total-cur}
     else{spent=sum(e.items||[],x=>x.a);cur=total-spent}
-    return {alloc,total,spent,cur};
+    return {alloc,carry,total,spent,cur};
   });
   const ri=envs.findIndex(e=>e.rule==='rest');
   const balance=ri>=0?E[ri].alloc-E[ri].spent:0;
@@ -413,7 +421,7 @@ function viewMonth(){
     let body='';
     if(open){
       body=`<div class="env-body"><div class="grid2">
-        <label class="field">前月繰越${numIn(P,`envelopes.${i}.carry`,e.carry)}</label>
+        <label class="field">前月繰越${monthIds().length>1&&prevMonthOf(m)?`<input class="num" disabled value="${yen(r.carry)}" aria-label="前月の残りを自動で繰越">`:numIn(P,`envelopes.${i}.carry`,e.carry)}</label>
         <label class="field">今月割当${e.rule==='perDay'?`<input class="num" disabled value="${yen(r.alloc)}" aria-label="日数×${e.rate||1000}円">`:e.rule==='rest'?`<input class="num" disabled value="${yen(r.alloc)}" aria-label="予算残金">`:numIn(P,`envelopes.${i}.alloc`,e.alloc)}</label>
       </div>
       ${e.rule==='perDay'?`<p class="hint">割当は 日数 × ${yen(e.rate||1000)}円 で自動計算</p>`:''}
@@ -458,7 +466,6 @@ function viewMonth(){
   ${S.ui.open.debEdit?`<div style="margin-top:8px;text-align:right"><button class="link" data-act="add-debit">＋ 引落しを追加</button></div>`:''}
 
 
-  <p class="foot-note">金額欄は「880+5995」のような足し算・割り算もそのまま入力できます。</p>
   <div style="margin-top:20px;text-align:center"><button class="del" style="width:auto;padding:0 12px;font-size:12px" data-act="del-doc" data-doc="${P}">この月を削除</button></div>`;
 }
 
@@ -698,7 +705,7 @@ function newMonthFrom(prevId){
   const p=S.months[prevId],c=calcMonth(p);let id=nextMonthId(prevId);while(S.months[id])id=nextMonthId(id);
   const st=p.end?isoAdd(p.end,{d:1}):'';
   const m={label:id,days:p.days,salary:0,start:st,end:st?isoAdd(st,{mo:1,d:-1}):'',
-    envelopes:(p.envelopes||[]).map((e,i)=>({...clone(e),carry:e.carryRule==='none'?0:Math.round(c.E[i].cur),items:[],balance:e.balanceMode?null:e.balance})),
+    envelopes:(p.envelopes||[]).map((e,i)=>({...clone(e),carry:Math.round(c.E[i].cur),items:[],balance:e.balanceMode?null:e.balance})),
     debits:(p.debits||[]).map(d=>({...clone(d),sorted:0,done:false})),tsumitate:clone(p.tsumitate||[]),createdAt:new Date().toISOString()};
   S.months[id]=m;save('months/'+id);return id;
 }

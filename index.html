@@ -432,12 +432,12 @@ function ensureAccIds(){let ch=false;accList().forEach(a=>{if(!a.id){a.id='a'+Ma
 function accById(id){return accList().find(a=>a.id===id)}
 function syncAcc(it,debit){
   const o=it.accOn&&accById(it.accOn);if(o)o.a=n(o.a)+n(it.accA);
-  const amt=debit?(it.done?n(it.amount):0):n(it.a);
+  const amt=debit?(it.done?n('amount' in it?it.amount:it.a):0):n(it.a);
   const a=it.acc&&accById(it.acc);
   if(a&&amt){a.a=n(a.a)-amt;it.accOn=it.acc;it.accA=amt}else{it.accOn='';it.accA=0}
   save('one/assets');
 }
-function releaseAcc(it){if(!it)return;const o=it.accOn&&accById(it.accOn);if(o){o.a=n(o.a)+n(it.accA);save('one/assets')}}
+function releaseAcc(it){if(!it)return;if(Array.isArray(it.items)){it.items.forEach(releaseAcc);return}const o=it.accOn&&accById(it.accOn);if(o){o.a=n(o.a)+n(it.accA);save('one/assets')}}
 const accBtns=(attrs,val,act)=>accList().map(a=>`<button type="button" data-act="${act}" ${attrs} data-acc="${esc(a.id)}" aria-pressed="${a.id===val}">${esc(a.n)}</button>`).join('');
 const accSel=(P,key,val)=>`<div class="acc-pick" role="group" aria-label="引落元の口座">${accBtns(`data-doc="${P}" data-key="${key}"`,val,'set-acc')}</div>`;
 /* ---------- small UI builders ---------- */
@@ -558,6 +558,7 @@ function viewAssets(){
   <div style="margin-top:28px;display:flex;justify-content:space-between;align-items:center"><span class="foot-note" style="margin:0">保存先：Googleスプレッドシート（<span id="sync">${esc(syncState||'—')}</span>）</span><button class="link" data-act="setup-open">接続設定</button></div>`;
 }
 function viewBonus(){
+  ensureAccIds();
   const ids=Object.keys(S.bonus).sort().reverse();
   if(!ids.length)return `<div class="empty"><b>賞与の予算がありません</b>賞与ごとに、使う予定と支払い済みを管理できます。<div style="margin-top:16px"><button class="btn solid" data-act="new-bonus">賞与の予算を作成</button></div></div>`;
   if(!S.ui.bonus||!S.bonus[S.ui.bonus])S.ui.bonus=latestBonusId()||ids[0];
@@ -572,7 +573,7 @@ function viewBonus(){
     return `<div class="event ${done?'alldone':''}" data-idx="${i}">
     <div class="ev-row is-open" data-act="ev" data-k="${k}" aria-expanded="true">${grip}<button class="ev-chev" data-act="ev" data-k="${k}" aria-expanded="true" aria-label="閉じる"><span class="chev" aria-hidden="true"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>${datePick(P,`events.${i}.date`,e.date,'開始日','開始日')}${txtIn(P,`events.${i}.title`,e.title,'class="ev-title-in" placeholder="予定" aria-label="予定"')}${tail}</div>
     <div class="ev-end"><span></span><span></span>${datePick(P,`events.${i}.dateEnd`,e.dateEnd,'終了日','終了日')}<span></span>${e.dateEnd?`<button class="link" style="font-weight:500;font-size:12px" data-act="clear-end" data-ev="${i}">消す</button>`:'<span></span>'}</div>
-    ${(e.items||[]).map((it,j)=>`<div class="bitem">${txtIn(P,`events.${i}.items.${j}.n`,it.n,'placeholder="項目" aria-label="項目"')}${numIn(P,`events.${i}.items.${j}.a`,it.a,'aria-label="金額"')}${stamp(P,`events.${i}.items.${j}.done`,it.done,'sm')}${delBtn(P,`events.${i}.items`,j)}</div>`).join('')}
+    ${(e.items||[]).map((it,j)=>`<div class="bitem">${txtIn(P,`events.${i}.items.${j}.n`,it.n,'placeholder="項目" aria-label="項目"')}${numIn(P,`events.${i}.items.${j}.a`,it.a,'aria-label="金額"')}${stamp(P,`events.${i}.items.${j}.done`,it.done,'sm')}${delBtn(P,`events.${i}.items`,j)}${accSel(P,`events.${i}.items.${j}.acc`,it.acc)}</div>`).join('')}
     <div style="display:flex;justify-content:space-between;margin-top:4px"><button class="del" style="width:auto;padding:0 8px;font-size:12px" data-act="del" data-doc="${P}" data-arr="events" data-idx="${i}">予定を削除</button><button class="link" data-act="add-bitem" data-ev="${i}">＋ 項目</button></div>
     </div>`}).join('');
   return `
@@ -752,8 +753,8 @@ document.addEventListener('change',e=>{
   setIn(doc,key,v);save(path);
   const mm=/^(.*(?:items|extras)[.][0-9]+)[.](a|acc)$/.exec(key);
   if(mm&&path.startsWith('months/')){const it=getIn(doc,mm[1]);if(it&&(it.acc||it.accOn))syncAcc(it)}
-  const dm=/^(debits[.][0-9]+)[.]amount$/.exec(key);
-  if(dm&&path.startsWith('months/')){const d=getIn(doc,dm[1]);if(d&&(d.acc||d.accOn))syncAcc(d,true)}
+  const dm=/^(debits[.][0-9]+)[.]amount$/.exec(key)||(path.startsWith('bonus/')?/^(events[.][0-9]+[.]items[.][0-9]+)[.]a$/.exec(key):null);
+  if(dm&&(path.startsWith('months/')||path.startsWith('bonus/'))){const d=getIn(doc,dm[1]);if(d&&(d.acc||d.accOn))syncAcc(d,true)}
   setTimeout(()=>render(),0);
 });
 document.addEventListener('click',e=>{const i=e.target.closest('.date-pick input');if(i&&i.showPicker){try{i.showPicker()}catch(_){}}});
@@ -833,7 +834,7 @@ document.addEventListener('click',e=>{
    case 'blabel-edit':S.ui.open.bLabelEdit=true;render(true);setTimeout(()=>{const i=$('#b-label-top');if(i){i.focus();i.select()}},30);break;
    case 'label-edit':S.ui.open.labelEdit=true;render(true);setTimeout(()=>{const i=$('#m-label-top');if(i){i.focus();i.select()}},30);break;
    case 'open':S.ui.open[b.dataset.k]=!S.ui.open[b.dataset.k];render(true);break;
-   case 'toggle':{const d=docOf(P);setIn(d,b.dataset.key,!getIn(d,b.dataset.key));const tm=/^(debits[.][0-9]+)[.]done$/.exec(b.dataset.key);if(tm){const x=getIn(d,tm[1]);if(x&&(x.acc||x.accOn))syncAcc(x,true)}save(P);render(true);break}
+   case 'toggle':{const d=docOf(P);setIn(d,b.dataset.key,!getIn(d,b.dataset.key));const tm=/^(debits[.][0-9]+|events[.][0-9]+[.]items[.][0-9]+)[.]done$/.exec(b.dataset.key);if(tm){const x=getIn(d,tm[1]);if(x&&(x.acc||x.accOn))syncAcc(x,true)}save(P);render(true);break}
    case 'del':{const d=docOf(P);const it=getIn(d,b.dataset.arr)?.[+b.dataset.idx];const nm=it?(it.n||it.name||it.title||it.date||''):'';S.ui.confirm={kind:'item',P,arr:b.dataset.arr,idx:+b.dataset.idx,msg:nm?`「${nm}」を削除しますか？`:'この行を削除しますか？'};render(true);break}
    case 'del-doc':{const d=docOf(P);S.ui.confirm={kind:'doc',P,msg:`「${d?.label||''}」をまるごと削除しますか？中の記録もすべて消えます。`};render(true);break}
    case 'confirm-cancel':S.ui.confirm=null;render(true);break;
@@ -848,7 +849,7 @@ document.addEventListener('click',e=>{
    case 'quick':{const m=cur();if(!m)break;let i=b.dataset.env!=null?+b.dataset.env:(S.ui.lastEnv??(m.envelopes||[]).findIndex(x=>!x.balanceMode));if(m.envelopes[i]?.balanceMode)i=(m.envelopes||[]).findIndex(x=>!x.balanceMode);S.ui.sheet={env:i,acc:accById(S.ui.lastAcc)?S.ui.lastAcc:''};render(true);setTimeout(()=>$('#q-amt')?.focus(),50);break}
    case 'pick-env':S.ui.sheet.env=+b.dataset.env;document.querySelectorAll('.pick button').forEach(x=>x.setAttribute('aria-pressed',x===b));const sb=$('#quick-form button[type=submit]');if(sb)sb.textContent=`${cur().label} の ${(S.ui.sheet.env===-1?'予算外':cur().envelopes[S.ui.sheet.env].name)} に追加`;break;
    case 'pick-acc':S.ui.sheet.acc=b.dataset.acc;document.querySelectorAll('.pick.acc button').forEach(x=>x.setAttribute('aria-pressed',x===b));break;
-   case 'set-acc':{const doc=docOf(P),key=b.dataset.key,mm=/^(.*)[.]acc$/.exec(key);if(!doc||!mm)break;setIn(doc,key,b.dataset.acc);const it=getIn(doc,mm[1]);if(it)syncAcc(it,/^debits[.][0-9]+$/.test(mm[1]));save(P);render(true);break}
+   case 'set-acc':{const doc=docOf(P),key=b.dataset.key,mm=/^(.*)[.]acc$/.exec(key);if(!doc||!mm)break;setIn(doc,key,b.dataset.acc);const it=getIn(doc,mm[1]);if(it)syncAcc(it,P.startsWith('bonus/')||/^debits[.][0-9]+$/.test(mm[1]));save(P);render(true);break}
    case 'close-sheet':S.ui.sheet=null;render(true);break;
    case 'new-bonus':{const prev=latestBonus();const ids=Object.keys(S.bonus);const id='b'+Date.now().toString(36);
      const pc=prev?calcBonus(prev):null;

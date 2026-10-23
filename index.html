@@ -531,7 +531,6 @@ function viewAssets(){
   const m=S.months[ids[0]],P='one/assets',c=calcMonth(m),accs=S.one.assets?.accounts||[];
   return `<h2 style="margin-top:4px">全体収支</h2>
   <section class="hero" aria-label="全体収支">
-    <div class="label">支払いをすべて済ませた後に残るお金</div>
     <div class="big num ${c.left<0?'neg':''}"><span class="yen">¥</span>${yen(c.left)}</div>
     <div class="eq num"><span>資産の合計</span><b>${yen(c.assets)}</b>
       <span>− 今後支払い予定<span class="sum-note">下の5つの合計</span></span><b>${yen(c.upcoming)}</b></div>

@@ -281,7 +281,7 @@ const yen=v=>{const r=Math.round(n(v));return (r<0?'−':'')+Math.abs(r).toLocal
 const sum=(a,f)=>a.reduce((s,x)=>s+n(f?f(x):x),0);
 const clone=o=>JSON.parse(JSON.stringify(o));
 function evalAmount(str){
-  str=String(str).replace(/[０-９＋－ー×÷（）．，]/g,c=>({'＋':'+','－':'-','ー':'-','×':'*','÷':'/','（':'(','）':')','．':'.','，':''}[c]??String.fromCharCode(c.charCodeAt(0)-0xFEE0))).replace(/[,\s円¥]/g,'');
+  str=String(str).replace(/[０-９＋－−ー×÷（）．，]/g,c=>({'＋':'+','－':'-','−':'-','ー':'-','×':'*','÷':'/','（':'(','）':')','．':'.','，':''}[c]??String.fromCharCode(c.charCodeAt(0)-0xFEE0))).replace(/[,\s円¥]/g,'');
   if(str==='')return 0;
   if(!/^[\d+\-*/().]+$/.test(str))return null;
   try{const v=Function('"use strict";return ('+str+')')();return Number.isFinite(v)?Math.round(v*100)/100:null}catch(e){return null}
@@ -374,16 +374,22 @@ function carryOf(m,e,i,prevCalc){
   const pe=(prevCalc.m.envelopes||[]);let j=pe.findIndex(x=>x.name===e.name);if(j<0)j=i<pe.length?i:-1;
   return j<0?n(e.carry):Math.round(prevCalc.E[j].cur);
 }
+function migrateMonth(m){
+  const envs=m.envelopes||[];if(!envs.some(e=>e.rule==='rest'))return;
+  m.extras=(m.extras||[]).concat(envs.filter(e=>e.rule==='rest').flatMap(e=>e.items||[]));
+  m.envelopes=envs.filter(e=>e.rule!=='rest');
+}
 function calcMonth(m){
+  migrateMonth(m);
   const pm=prevMonthOf(m),prevCalc=pm?{...calcMonth(pm),m:pm}:null;
   const envs=m.envelopes||[];const debits=m.debits||[];
   const debitAlloc=sum(debits,d=>n(d.amount)-sortedOf(m,d));
-  const envAlloc=envs.map(e=>e.rule==='perDay'?n(m.days)*n(e.rate||1000):e.rule==='rest'?0:n(e.alloc));
+  const envAlloc=envs.map(e=>e.rule==='perDay'?n(m.days)*n(e.rate||1000):n(e.alloc));
   const tsumiAlloc=sum(m.tsumitate||[],t=>t.amount);
   const allocTotal=sum(envAlloc)+debitAlloc+tsumiAlloc;
   const start=n(m.salary)-allocTotal;
   const E=envs.map((e,i)=>{
-    const alloc=e.rule==='rest'?start:envAlloc[i];
+    const alloc=envAlloc[i];
     const carry=carryOf(m,e,i,prevCalc);
     const total=carry+alloc;
     let spent,cur;
@@ -391,8 +397,8 @@ function calcMonth(m){
     else{spent=sum(e.items||[],x=>x.a);cur=total-spent}
     return {alloc,carry,total,spent,cur};
   });
-  const ri=envs.findIndex(e=>e.rule==='rest');
-  const balance=ri>=0?E[ri].alloc-E[ri].spent:0;
+  const extraSum=sum(m.extras||[],x=>x.a);
+  const balance=start-extraSum;
   const assets=sum(S.one.assets?.accounts||[],a=>a.a);
   const bonusUp=sum(Object.values(S.bonus),b=>calcBonus(b).upcoming);
   const envUp=sum(envs.map((e,i)=>e.manage==='口座'?E[i].cur:0));
@@ -400,7 +406,7 @@ function calcMonth(m){
   const cardUp=cardsPending();
   const fundUp=fundsTotal();
   const upcoming=bonusUp+envUp+fundUp+debitUp+cardUp;
-  return {E,debitAlloc,tsumiAlloc,allocTotal,start,balance,assets,bonusUp,envUp,fundUp,debitUp,cardUp,upcoming,left:assets-upcoming};
+  return {E,extraSum,debitAlloc,tsumiAlloc,allocTotal,start,balance,assets,bonusUp,envUp,fundUp,debitUp,cardUp,upcoming,left:assets-upcoming};
 }
 
 /* ---------- small UI builders ---------- */
@@ -424,10 +430,9 @@ function viewMonth(){
     if(open){
       body=`<div class="env-body"><div class="grid2">
         <label class="field">前月繰越${monthIds().length>1&&prevMonthOf(m)?`<input class="num" disabled value="${yen(r.carry)}" aria-label="前月の残りを自動で繰越">`:numIn(P,`envelopes.${i}.carry`,e.carry)}</label>
-        <label class="field">今月割当${e.rule==='perDay'?`<input class="num" disabled value="${yen(r.alloc)}" aria-label="日数×${e.rate||1000}円">`:e.rule==='rest'?`<input class="num" disabled value="${yen(r.alloc)}" aria-label="予算残金">`:numIn(P,`envelopes.${i}.alloc`,e.alloc)}</label>
+        <label class="field">今月割当${e.rule==='perDay'?`<input class="num" disabled value="${yen(r.alloc)}" aria-label="日数×${e.rate||1000}円">`:numIn(P,`envelopes.${i}.alloc`,e.alloc)}</label>
       </div>
       ${e.rule==='perDay'?`<p class="hint">割当は 日数 × ${yen(e.rate||1000)}円 で自動計算</p>`:''}
-      ${e.rule==='rest'?`<p class="hint">割当は「予算残金」（給与 − ほかの割当）で自動計算</p>`:''}
       ${e.balanceMode?`<label class="field">いまの残高（PayPayなどを見て入力）${numIn(P,`envelopes.${i}.balance`,e.balance,'placeholder="未入力"')}</label>`:
       `<div class="items">${(e.items||[]).map((it,j)=>`<div class="item">${txtIn(P,`envelopes.${i}.items.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`envelopes.${i}.items.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`envelopes.${i}.items`,j)}</div>`).join('')||'<p class="hint">まだ支出はありません</p>'}</div>
       <div style="margin-top:8px;display:flex;justify-content:flex-end"><button class="link" data-act="quick" data-env="${i}">＋ ${esc(e.name)}に支出を追加</button></div>`}
@@ -453,12 +458,15 @@ function viewMonth(){
   <div class="panel">
     <div class="kv"><label for="m-sal">給与</label>${numIn(P,'salary',m.salary,'id="m-sal" style="font-size:18px"')}</div>
     <div class="kv"><label>今月割当の合計</label><span class="num" style="text-align:right;padding:6px 0">${yen(c.allocTotal)}</span></div>
-    <div class="kv"><label>予算残金</label><span class="num" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${yen(c.start)}</span></div>
-    <div class="kv"><label>free貯金の収支<br><span class="meta" style="font-size:11px">予算残金 − free貯金で使った額</span></label><span class="num ${c.balance<0?'neg':'pos'}" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${c.balance>=0?'+':''}${yen(c.balance)}</span></div>
+    <div class="kv"><label>予算外の支出</label><span class="num" style="text-align:right;padding:6px 0">${yen(c.extraSum)}</span></div>
+    <div class="kv"><label>収支<br><span class="meta" style="font-size:11px">給与 − 今月割当 − 予算外の支出</span></label><span class="num ${c.balance<0?'neg':'pos'}" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${c.balance>=0?'+':''}${yen(c.balance)}</span></div>
   </div>
 
   <h2>予算</h2>
   <div class="panel">${envHtml}</div>
+
+  <h2>予算外の支出 <button class="link" data-act="quick" data-env="-1">＋ 追加</button></h2>
+  <div class="panel">${(m.extras||[]).map((it,j)=>`<div class="item">${txtIn(P,`extras.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`extras.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`extras`,j)}</div>`).join('')||'<p class="hint">予算外の支出はありません</p>'}</div>
 
   <h2>積立 <button class="link" data-act="tab" data-v="funds">積立を見る ›</button></h2>
   <div class="panel">${(m.tsumitate||[]).map((t,i)=>{const f=(S.one.funds?.funds||[]).find(x=>x.id===t.fund);return `<div class="kv"><label for="ts${i}"><span style="color:var(--ink);font-weight:700">${esc(t.name)}</span><br><span class="meta num" style="font-size:12px">残高 ${f?yen(fundCalc(f).balance):'—'}</span></label>${numIn(P,`tsumitate.${i}.amount`,t.amount,`id="ts${i}" style="font-size:18px"`)}</div>`}).join('')||'<p class="hint">積立はありません</p>'}</div>
@@ -652,10 +660,10 @@ function viewSheet(){
   return `<div class="sheet-bg" data-act="close-sheet"></div>
   <form class="sheet" id="quick-form" aria-label="支出を追加"><div class="in">
    <div style="display:flex;justify-content:space-between;align-items:center"><h3>支出を追加</h3><button type="button" class="link" data-act="close-sheet">閉じる</button></div>
-   <div class="pick" role="group" aria-label="封筒">${envs.map(({e,i})=>`<button type="button" data-act="pick-env" data-env="${i}" aria-pressed="${s.env===i}">${esc(e.name)}</button>`).join('')}</div>
+   <div class="pick" role="group" aria-label="封筒">${envs.map(({e,i})=>`<button type="button" data-act="pick-env" data-env="${i}" aria-pressed="${s.env===i}">${esc(e.name)}</button>`).join('')}<button type="button" data-act="pick-env" data-env="-1" aria-pressed="${s.env===-1}">予算外</button></div>
    <div class="box"><input id="q-amt" class="num" inputmode="decimal" placeholder="金額" autocomplete="off" style="text-align:left"></div>
    <div class="box"><input id="q-name" placeholder="品目（例：スギ薬局）" autocomplete="off"></div>
-   <button class="btn solid" style="padding:14px" type="submit">${esc(S.months[id].label)} の ${esc(m.envelopes[s.env]?.name||'')} に追加</button>
+   <button class="btn solid" style="padding:14px" type="submit">${esc(S.months[id].label)} の ${esc(s.env===-1?'予算外':m.envelopes[s.env]?.name||'')} に追加</button>
   </div></form>`;
 }
 
@@ -710,11 +718,11 @@ function newMonthFrom(prevId){
   const st=p.end?isoAdd(p.end,{d:1}):'';
   const m={label:id,days:p.days,salary:0,start:st,end:st?isoAdd(st,{mo:1,d:-1}):'',
     envelopes:(p.envelopes||[]).map((e,i)=>({...clone(e),carry:Math.round(c.E[i].cur),items:[],balance:e.balanceMode?null:e.balance})),
-    debits:(p.debits||[]).map(d=>({...clone(d),sorted:0,done:false})),tsumitate:clone(p.tsumitate||[]),createdAt:new Date().toISOString()};
+    extras:[],debits:(p.debits||[]).map(d=>({...clone(d),sorted:0,done:false})),tsumitate:clone(p.tsumitate||[]),createdAt:new Date().toISOString()};
   S.months[id]=m;save('months/'+id);return id;
 }
 function blankMonth(){return {label:new Date().toISOString().slice(0,7),days:30,salary:0,tsumitate:[{fund:'car',name:'車関連費',amount:11000},{fund:'net',name:'通信費',amount:4000}],
-  envelopes:[{name:'生活費',manage:'PayPay',carry:0,alloc:30000,balanceMode:true,balance:null,carryRule:'none',items:[]},{name:'医療費',manage:'現金',carry:0,alloc:8000,items:[]},{name:'美容費',manage:'口座',carry:0,alloc:20000,items:[]},{name:'free貯金',manage:'口座',carry:0,alloc:0,rule:'rest',items:[]}],debits:[]}}
+  envelopes:[{name:'生活費',manage:'PayPay',carry:0,alloc:30000,balanceMode:true,balance:null,carryRule:'none',items:[]},{name:'医療費',manage:'現金',carry:0,alloc:8000,items:[]},{name:'美容費',manage:'口座',carry:0,alloc:20000,items:[]}],debits:[]}}
 function reorderEvents(id,idx){const ev=S.bonus[id].events;const open=idx.map(i=>S.ui.evOpen[id+':'+i]);S.bonus[id].events=idx.map(i=>ev[i]);open.forEach((o,n)=>{if(o===undefined)delete S.ui.evOpen[id+':'+n];else S.ui.evOpen[id+':'+n]=o});saveEv();save('bonus/'+id);render(true)}
 /* drag & drop for bonus events */
 let drag=null;
@@ -786,7 +794,7 @@ document.addEventListener('click',e=>{
    case 'add-debit':cur().debits=cur().debits||[];cur().debits.push({name:'新しい引落し',manage:'',amount:0,sorted:0,done:false});save('months/'+S.ui.month);render(true);break;
    case 'add-account':if(!S.one.assets)S.one.assets={accounts:[]};S.one.assets.accounts.push({n:'口座',a:0});save('one/assets');render(true);break;
    case 'quick':{const m=cur();if(!m)break;let i=b.dataset.env!=null?+b.dataset.env:(S.ui.lastEnv??(m.envelopes||[]).findIndex(x=>!x.balanceMode));if(m.envelopes[i]?.balanceMode)i=(m.envelopes||[]).findIndex(x=>!x.balanceMode);S.ui.sheet={env:i};render(true);setTimeout(()=>$('#q-amt')?.focus(),50);break}
-   case 'pick-env':S.ui.sheet.env=+b.dataset.env;document.querySelectorAll('.pick button').forEach(x=>x.setAttribute('aria-pressed',x===b));const sb=$('#quick-form button[type=submit]');if(sb)sb.textContent=`${cur().label} の ${cur().envelopes[S.ui.sheet.env].name} に追加`;break;
+   case 'pick-env':S.ui.sheet.env=+b.dataset.env;document.querySelectorAll('.pick button').forEach(x=>x.setAttribute('aria-pressed',x===b));const sb=$('#quick-form button[type=submit]');if(sb)sb.textContent=`${cur().label} の ${(S.ui.sheet.env===-1?'予算外':cur().envelopes[S.ui.sheet.env].name)} に追加`;break;
    case 'close-sheet':S.ui.sheet=null;render(true);break;
    case 'new-bonus':{const prev=latestBonus();const ids=Object.keys(S.bonus);const id='b'+Date.now().toString(36);
      const pc=prev?calcBonus(prev):null;
@@ -813,8 +821,8 @@ document.addEventListener('submit',e=>{
   if(e.target.id!=='quick-form')return;e.preventDefault();
   const amt=evalAmount($('#q-amt').value),name=$('#q-name').value.trim();
   if(!amt){toast('金額を入れてください');$('#q-amt').focus();return}
-  const m=S.months[S.ui.month],env=m.envelopes[S.ui.sheet.env];
-  env.items=env.items||[];env.items.push({n:name||'支出',a:amt});S.ui.lastEnv=S.ui.sheet.env;
+  const m=S.months[S.ui.month],ex=S.ui.sheet.env===-1,env=ex?{name:'予算外'}:m.envelopes[S.ui.sheet.env];
+  if(ex){m.extras=m.extras||[];m.extras.push({n:name||'支出',a:amt})}else{env.items=env.items||[];env.items.push({n:name||'支出',a:amt})}S.ui.lastEnv=S.ui.sheet.env;
   save('months/'+S.ui.month);S.ui.sheet=null;document.activeElement?.blur();
   toast(`${env.name} に ${yen(amt)}円 を追加しました`);render(true);
 });

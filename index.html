@@ -724,7 +724,8 @@ function render(force){
   if(!S.ui.setup&&all&&(syncState==='オフライン'||syncState==='未保存あり'))html=`<div class="sync-banner">${syncState==='オフライン'?'オフラインです。表示は前回読み込んだ内容です。':'保存できていない変更があります。電波のよい所で開き直すと再送します。'}</div>`+html;
   app.innerHTML=html;
   $('#tabs').innerHTML=TABS.map(([k,l,ic])=>k===S.ui.tab?`<button class="tab-center" data-act="tab" data-v="${k}" ${S.ui.tab===k?'aria-current="page"':''}><span class="orb"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span class="orb-l">${l}</span></span></button>`:`<button data-act="tab" data-v="${k}" ${S.ui.tab===k?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg>${l}</button>`).join('');
-  const showFab=all&&!S.ui.setup&&S.ui.tab==='month'&&S.months[S.ui.month];
+  if(all&&(!S.ui.month||!S.months[S.ui.month]))S.ui.month=monthIds()[0]||null;
+  const showFab=all&&!S.ui.setup&&S.months[S.ui.month];
   $('#layer').innerHTML=(showFab&&!S.ui.sheet?`<button class="fab" data-act="quick"><span aria-hidden="true" style="font-size:20px;line-height:1">＋</span>支出</button>`:'')+viewSheet()+viewConfirm();
   window.scrollTo(0,y);
 }

@@ -703,7 +703,7 @@ function isEditing(){const a=document.activeElement;return a&&a.matches&&a.match
 let deferred=false;
 function migrateCards(){
   const cs=S.one.cards?.cards||[];let ch=false;
-  cs.forEach(c=>{if(c.name==='PayPay'){c.name='PayPayカード';ch=true}});
+  cs.forEach(c=>{if(c.name==='PayPay'||c.name==='その他'){c.name+='カード';ch=true}});
   if(ch&&S.db)save('one/cards');
 }
 function render(force){
@@ -850,7 +850,7 @@ document.addEventListener('click',e=>{
    case 'ev-all':{const id=S.ui.bonus;(S.bonus[id].events||[]).forEach((_,i)=>S.ui.evOpen[id+':'+i]=b.dataset.v==='1');saveEv();render(true);break}
    case 'add-event':{const bo=S.bonus[S.ui.bonus];bo.events=bo.events||[];bo.events.push({date:'',title:'',items:[{n:'',a:0,done:false}]});S.ui.evOpen[S.ui.bonus+':'+(bo.events.length-1)]=true;save('bonus/'+S.ui.bonus);render(true);break}
    case 'add-bitem':{const bo=S.bonus[S.ui.bonus];bo.events[+b.dataset.ev].items.push({n:'',a:0,done:false});save('bonus/'+S.ui.bonus);render(true);break}
-   case 'init-cards':S.one.cards={cards:['Olive','NL','PayPayカード','その他'].map(n=>({name:n,items:[]}))};save('one/cards');render(true);break;
+   case 'init-cards':S.one.cards={cards:['Olive','NL','PayPayカード','その他カード'].map(n=>({name:n,items:[]}))};save('one/cards');render(true);break;
    case 'add-citem':S.one.cards.cards[+b.dataset.c].items.push({date:'',n:'',a:0,done:false});S.ui.cardsShowDone=S.ui.cardsShowDone;save('one/cards');render(true);break;
    case 'csrc':{const it=S.one.cards.cards[+b.dataset.c].items[+b.dataset.j];it.src=it.src===b.dataset.v?'':b.dataset.v;save('one/cards');render(true);break}
    case 'cards-done':S.ui.cardsShowDone=b.dataset.v==='1';render(true);break;

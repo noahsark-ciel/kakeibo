@@ -392,6 +392,8 @@ function migrateMonth(m){
   (m.debits||[]).forEach(d=>{if(d.name==='生活費'){d.name='PayPay';if(!d.manage)d.manage='チャージ'}});
   const pp=(m.debits||[]).filter(d=>d.name==='PayPay');
   if(pp.length>1){pp.slice(0,-1).forEach(d=>{d.name='PayPayカード'});const l=pp[pp.length-1];if(!l.manage)l.manage='チャージ'}
+  const ds=m.debits||[],ci=ds.findIndex(d=>d.name==='PayPay'&&d.manage==='チャージ'),mi=ds.findIndex(d=>/母送金/.test(d.name||''));
+  if(ci>=0&&mi>=0&&ci!==mi+1){const [c]=ds.splice(ci,1);ds.splice(ds.findIndex(d=>/母送金/.test(d.name||''))+1,0,c)}
 }
 function calcMonth(m){
   migrateMonth(m);

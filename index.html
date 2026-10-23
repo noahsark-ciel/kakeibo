@@ -383,11 +383,14 @@ function migrateMonth(m){
     m.envelopes=m.envelopes.filter(e=>e.rule!=='rest');
   }
   const living=(m.envelopes||[]).filter(e=>e.name==='生活費');
+  if(living.length||(m.debits||[]).some(d=>d.name==='生活費'))(m.debits||[]).forEach(d=>{if(d.name==='PayPay')d.name='PayPayカード'});
   if(living.length){
-    m.debits=(m.debits||[]).concat(living.map(e=>({name:'PayPay',manage:'',amount:e.rule==='perDay'?n(m.days)*n(e.rate||1000):n(e.alloc),sorted:0,done:false})));
+    m.debits=(m.debits||[]).concat(living.map(e=>({name:'PayPay',manage:'チャージ',amount:e.rule==='perDay'?n(m.days)*n(e.rate||1000):n(e.alloc),sorted:0,done:false})));
     m.envelopes=m.envelopes.filter(e=>e.name!=='生活費');
   }
-  (m.debits||[]).forEach(d=>{if(d.name==='生活費')d.name='PayPay'});
+  (m.debits||[]).forEach(d=>{if(d.name==='生活費'){d.name='PayPay';if(!d.manage)d.manage='チャージ'}});
+  const pp=(m.debits||[]).filter(d=>d.name==='PayPay');
+  if(pp.length>1){pp.slice(0,-1).forEach(d=>{d.name='PayPayカード'});const l=pp[pp.length-1];if(!l.manage)l.manage='チャージ'}
 }
 function calcMonth(m){
   migrateMonth(m);
@@ -754,7 +757,7 @@ function newMonthFrom(prevId){
   S.months[id]=m;save('months/'+id);return id;
 }
 function blankMonth(){return {label:new Date().toISOString().slice(0,7),days:30,salary:0,tsumitate:[{fund:'car',name:'車関連費',amount:11000},{fund:'net',name:'通信費',amount:4000}],
-  debits:[{name:'PayPay',manage:'',amount:30000,sorted:0,done:false}],
+  debits:[{name:'PayPay',manage:'チャージ',amount:30000,sorted:0,done:false}],
   envelopes:[{name:'医療費',manage:'現金',carry:0,alloc:8000,items:[]},{name:'美容費',manage:'口座',carry:0,alloc:20000,items:[]}]}}
 function reorderEvents(id,idx){const ev=S.bonus[id].events;const open=idx.map(i=>S.ui.evOpen[id+':'+i]);S.bonus[id].events=idx.map(i=>ev[i]);open.forEach((o,n)=>{if(o===undefined)delete S.ui.evOpen[id+':'+n];else S.ui.evOpen[id+':'+n]=o});saveEv();save('bonus/'+id);render(true)}
 /* drag & drop for bonus events */

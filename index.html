@@ -471,7 +471,7 @@ function viewMonth(){
       </div>`;
     }
     return `<div class="env"><button class="env-head" data-act="open" data-k="env${i}" aria-expanded="${!!open}">
-      <span class="t">${esc(e.name)}<span class="tag">${esc(e.manage||'')}</span></span>
+      <span class="t">${esc(e.name)}</span>
       <span class="cur num ${r.cur<0?'neg':''}">${yen(r.cur)}</span>
       <span class="calc num">${yen(r.spent)} / ${yen(r.total)}</span>
       <span class="bar"><i class="${r.cur<0?'over':''}" style="width:${pct}%"></i></span>

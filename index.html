@@ -48,6 +48,7 @@ body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset
 .num{font-family:var(--font-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 h1{font-size:13px;font-weight:500;color:var(--sub);margin:0;letter-spacing:.08em}
 h2{font-size:13px;font-weight:700;color:var(--sub);margin:22px 4px 8px;letter-spacing:.1em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sticky-top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);margin:-12px 0 0;padding:12px 0 10px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
 select,input{font:inherit;color:var(--ink);background:transparent;border:0;min-width:0}
 input{width:100%;padding:6px 0;border-bottom:1px dashed transparent;border-radius:0}
@@ -533,6 +534,7 @@ function viewBonus(){
     <div style="display:flex;justify-content:space-between;margin-top:4px"><button class="del" style="width:auto;padding:0 8px;font-size:12px" data-act="del" data-doc="${P}" data-arr="events" data-idx="${i}">予定を削除</button><button class="link" data-act="add-bitem" data-ev="${i}">＋ 項目</button></div>
     </div>`}).join('');
   return `
+  <div class="sticky-top">
   <div class="top"><div style="display:flex;align-items:center;gap:4px;min-width:0;flex:1">${S.ui.open.bLabelEdit?`<input id="b-label-top" class="period-in" data-doc="${P}" data-key="label" data-t="text" value="${esc(b.label)}" aria-label="賞与の名前" enterkeyhint="done">`:`<select class="period" id="sel-bonus" aria-label="賞与を選ぶ">${ids.map(x=>`<option value="${x}" ${x===id?'selected':''}>${esc(S.bonus[x].label||x)}</option>`).join('')}</select><button class="del" style="color:var(--sub)" data-act="blabel-edit" aria-label="賞与の名前を変更"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></button>`}</div>
    <button class="btn" data-act="new-bonus">＋ 新しい賞与</button></div>
   <section class="hero">
@@ -540,13 +542,14 @@ function viewBonus(){
     <div class="big num ${c.remain<0?'neg':''}"><span class="yen">¥</span>${yen(c.remain)}</div>
     <div class="eq num"><span>使える額</span><b>${yen(c.usable)}</b><span>予算の合計</span><b>${yen(c.budget)}</b><span>支払い済み</span><b>${yen(c.paid)}</b><span>今後支払い予定</span><b>${yen(c.upcoming)}</b></div>
   </section>
-  <h2>設定</h2>
-  <div class="panel">
+  </div>
+  <h2>設定 <button class="link" data-act="open" data-k="bSetClosed" aria-expanded="${!S.ui.open.bSetClosed}">${S.ui.open.bSetClosed?'開く':'閉じる'}</button></h2>
+  ${S.ui.open.bSetClosed?'':`<div class="panel">
     <div class="kv"><label>期間</label>${txtIn(P,'period',b.period,'style="text-align:right"')}</div>
     <div class="kv"><label>賞与額</label>${numIn(P,'base',b.base)}</div>
     <div class="kv"><label>前回賞与の残り</label>${numIn(P,'carry',b.carry)}</div>
     <div class="kv"><label>貯金</label>${numIn(P,'saving',b.saving)}</div>
-  </div>
+  </div>`}
   <h2>予定 <button class="link" data-act="add-event">＋ 追加</button></h2>
   <div class="toolbar"><button class="tb" data-act="ev-sort">日付順に並べる</button><button class="tb" data-act="ev-all" data-v="0">すべて閉じる</button><button class="tb" data-act="ev-all" data-v="1">すべて開く</button></div>
   ${ev||'<p class="hint">予定はまだありません</p>'}

@@ -114,6 +114,8 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 .prow:last-child{border-bottom:0}
 .prow-top{display:grid;grid-template-columns:minmax(0,1fr) 100px 28px;gap:6px;align-items:center}
 .prow-cyc{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:6px;align-items:center;margin-top:2px}
+.tot-pick{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 10px;font-size:12px;color:var(--sub)}
+.tot-pick label{display:flex;align-items:center;gap:6px}
 .sel{font-size:13px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:4px 6px}
 .prow-mo{font-size:11px;color:var(--sub);white-space:nowrap}
 .plan-edit-bar{display:flex;justify-content:flex-end;margin:-4px 0 4px}
@@ -360,14 +362,24 @@ function calcBonus(b){
   const paid=sum(items.filter(i=>i.done),i=>i.a);
   return {usable,budget,remain:usable-budget,upcoming:usable-paid,paid};
 }
-function fundCalc(f){
-  const dep=Object.keys(S.months).sort().map(id=>{const t=(S.months[id].tsumitate||[]).find(x=>x.fund===f.id);return t&&n(t.amount)?{date:id,n:'毎月の積立',a:n(t.amount)}:null}).filter(Boolean);
+function fundCalc(f,upTo){
+  const dep=Object.keys(S.months).sort().filter(id=>!upTo||id<=upTo).map(id=>{const t=(S.months[id].tsumitate||[]).find(x=>x.fund===f.id);return t&&n(t.amount)?{date:id,n:'毎月の積立',a:n(t.amount)}:null}).filter(Boolean);
   const ent=f.entries||[];
   const inSum=n(f.opening)+sum(dep,x=>x.a)+sum(ent.filter(e=>e.kind==='in'),e=>e.a);
   const outSum=sum(ent.filter(e=>e.kind!=='in'),e=>e.a);
   return {dep,inSum,outSum,balance:inSum-outSum};
 }
-function fundsTotal(){return sum(S.one.funds?.funds||[],f=>fundCalc(f).balance)}
+function fundsTotal(upTo){return sum(S.one.funds?.funds||[],f=>fundCalc(f,upTo).balance)}
+function bonusIdsOrdered(){return Object.keys(S.bonus).sort((a,b)=>String(S.bonus[a].createdAt||'').localeCompare(String(S.bonus[b].createdAt||''))||a.localeCompare(b))}
+/* 全体収支：選んだ「今月」と「賞与」までで計算する */
+function calcOverall(monthId,bonusId){
+  const m=S.months[monthId],c=calcMonth(m);
+  const order=bonusIdsOrdered(),upto=bonusId==='none'?[]:order.slice(0,Math.max(0,order.indexOf(bonusId))+1);
+  const bonusUp=sum(upto,id=>calcBonus(S.bonus[id]).upcoming);
+  const fundUp=fundsTotal(monthId);
+  const upcoming=bonusUp+c.envUp+fundUp+c.debitUp+c.cardUp;
+  return {...c,bonusUp,fundUp,upcoming,left:c.assets-upcoming};
+}
 function latestBonusId(){const ids=Object.keys(S.bonus);if(!ids.length)return null;return ids.sort((a,b)=>String(S.bonus[a].createdAt||'').localeCompare(String(S.bonus[b].createdAt||''))||a.localeCompare(b))[ids.length-1]}
 function latestBonus(){const id=latestBonusId();return id?S.bonus[id]:null}
 function cardsPending(){const c=S.one.cards?.cards||[];return sum(c.flatMap(x=>x.items||[]).filter(i=>!i.done),i=>i.a)}
@@ -539,14 +551,21 @@ function viewSetup(){
 function viewAssets(){
   const ids=monthIds();
   if(!ids.length)return `<div class="empty"><b>まだ月のデータがありません</b>「今月」タブで最初の月を作ると、資産と残りが計算されます。</div>`;
-  const m=S.months[ids[0]],P='one/assets',c=calcMonth(m),accs=S.one.assets?.accounts||[];
+  const P='one/assets',accs=S.one.assets?.accounts||[];
+  const bIds=bonusIdsOrdered();
+  if(!S.ui.totMonth||!S.months[S.ui.totMonth])S.ui.totMonth=ids[0];
+  if(S.ui.totBonus!=='none'&&!S.bonus[S.ui.totBonus])S.ui.totBonus=bIds[bIds.length-1]||'none';
+  const m=S.months[S.ui.totMonth],c=calcOverall(S.ui.totMonth,S.ui.totBonus);
+  const bLabel=S.ui.totBonus==='none'?'なし':(S.bonus[S.ui.totBonus].label||S.ui.totBonus);
   return `<h2 style="margin-top:4px">全体収支</h2>
+  <div class="tot-pick"><label>今月<select id="sel-tot-month" class="sel" aria-label="どの月までで計算するか">${ids.map(x=>`<option value="${x}" ${x===S.ui.totMonth?'selected':''}>${esc(S.months[x].label||x)}</option>`).join('')}</select></label>
+  <label>賞与<select id="sel-tot-bonus" class="sel" aria-label="どの賞与までで計算するか">${bIds.slice().reverse().map(x=>`<option value="${x}" ${x===S.ui.totBonus?'selected':''}>${esc(S.bonus[x].label||x)}まで</option>`).join('')}<option value="none" ${S.ui.totBonus==='none'?'selected':''}>賞与を含めない</option></select></label></div>
   <section class="hero" aria-label="全体収支">
     <div class="big num ${c.left<0?'neg':''}"><span class="yen">¥</span>${yen(c.left)}</div>
     <div class="eq num"><span>資産の合計</span><b>${yen(c.assets)}</b>
       <span>− 今後支払い予定<span class="sum-note">下の5つの合計</span></span><b>${yen(c.upcoming)}</b></div>
     <div class="breakdown num">
-      <span>賞与の残り予定（全賞与）</span><b>${yen(c.bonusUp)}</b>
+      <span>賞与の残り予定（${esc(bLabel)}${S.ui.totBonus==='none'?'':'まで'}）</span><b>${yen(c.bonusUp)}</b>
       <span>口座の予算（${(m.envelopes||[]).filter(inUpcoming).map(e=>esc(e.name)).join('・')||'なし'}）</span><b>${yen(c.envUp)}</b>
       <span>積立の残高</span><b>${yen(c.fundUp)}</b>
       <span>未払いの引落し</span><b>${yen(c.debitUp)}</b>
@@ -556,7 +575,7 @@ function viewAssets(){
   <div class="panel">${accs.map((a,i)=>S.ui.open.accEdit?`<div class="item" style="grid-template-columns:1fr 130px 28px">${txtIn(P,`accounts.${i}.n`,a.n,'aria-label="名前"')}${numIn(P,`accounts.${i}.a`,a.a,'aria-label="金額"')}${delBtn(P,'accounts',i)}</div>`:`<div class="kv"><label for="acc${i}">${esc(a.n)}</label>${numIn(P,`accounts.${i}.a`,a.a,`id="acc${i}" style="font-size:18px"`)}</div>`).join('')}
     <div class="kv"><label style="font-weight:700;color:var(--ink)">合計</label><span class="num" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${yen(c.assets)}</span></div></div>
   <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center"><button class="btn" data-act="transfer-open">口座間を移動</button>${S.ui.open.accEdit?`<button class="link" data-act="add-account">＋ 口座を追加</button>`:''}</div>
-  <p class="foot-note">「今後支払い予定」は、いちばん新しい月（${esc(m.label||ids[0])}）の予算と引落しで計算しています。</p>
+  <p class="foot-note">「今後支払い予定」は、選んだ月（${esc(m.label||S.ui.totMonth)}）の予算と引落し、積立の積み上げ（その月まで）、選んだ賞与までの残り予定で計算しています。</p>
   ${viewSavings()}
   <div style="margin-top:28px;display:flex;justify-content:space-between;align-items:center"><span class="foot-note" style="margin:0">保存先：Googleスプレッドシート（<span id="sync">${esc(syncState||'—')}</span>）</span><button class="link" data-act="setup-open">接続設定</button></div>`;
 }
@@ -777,6 +796,8 @@ document.addEventListener('focusout',e=>{if(e.target.id==='m-label-top'||e.targe
 document.addEventListener('change',e=>{
   const el=e.target;
   if(el.id==='sel-month'){S.ui.month=el.value;S.ui.open={};render(true);return}
+  if(el.id==='sel-tot-month'){S.ui.totMonth=el.value;render(true);return}
+  if(el.id==='sel-tot-bonus'){S.ui.totBonus=el.value;render(true);return}
   if(el.id==='sel-trip'){S.ui.trip=el.value;render(true);return}
   if(el.id==='sel-bonus'){S.ui.bonus=el.value;render(true);return}
   const path=el.dataset.doc,key=el.dataset.key;if(!path||!key)return;

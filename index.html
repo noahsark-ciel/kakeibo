@@ -187,6 +187,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
   .date-pick.dp-empty input:focus{color:var(--sub)}
 }
 .toolbar{display:flex;flex-wrap:wrap;gap:6px;margin:-2px 0 10px}
+.tb.on{background:var(--accent);border-color:var(--accent);color:var(--card);font-weight:700}
 .tb{font-size:12px;color:var(--sub);border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px}
 .grip{width:22px;height:40px;display:inline-flex;align-items:center;justify-content:flex-start;color:var(--sub);cursor:grab;touch-action:none;opacity:.6;margin-left:-4px}
 .grip svg{fill:currentColor}
@@ -563,9 +564,11 @@ function viewBonus(){
   if(!ids.length)return `<div class="empty"><b>賞与の予算がありません</b>賞与ごとに、使う予定と支払い済みを管理できます。<div style="margin-top:16px"><button class="btn solid" data-act="new-bonus">賞与の予算を作成</button></div></div>`;
   if(!S.ui.bonus||!S.bonus[S.ui.bonus])S.ui.bonus=latestBonusId()||ids[0];
   const id=S.ui.bonus,b=S.bonus[id],P='bonus/'+id,c=calcBonus(b);
+  const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);let hiddenPast=0;
   const ev=(b.events||[]).map((e,i)=>{
     const its=e.items||[],nd=its.filter(x=>x.done).length;
     const done=its.length&&nd===its.length;
+    if((S.ui.evFuture&&(e.dateEnd||e.date)&&(e.dateEnd||e.date)<today)||(S.ui.evUndone&&done)){hiddenPast++;return ''}
     const k=id+':'+i,open=k in S.ui.evOpen?S.ui.evOpen[k]:!done;
     const grip=`<span class="grip" data-grip="${i}" role="button" aria-label="ドラッグして並べ替え"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="6" cy="4" r="1.3"/><circle cx="10" cy="4" r="1.3"/><circle cx="6" cy="8" r="1.3"/><circle cx="10" cy="8" r="1.3"/><circle cx="6" cy="12" r="1.3"/><circle cx="10" cy="12" r="1.3"/></svg></span>`;
     const tail=`<span class="ev-sum"><span class="num">${yen(sum(its,x=>x.a))}</span><span class="ev-cnt ${done?'on':''}">${done?'済':`済 ${nd}/${its.length}`}</span></span>`;
@@ -594,8 +597,8 @@ function viewBonus(){
     <div class="kv"><label>貯金</label>${numIn(P,'saving',b.saving)}</div>
   </div>`}
   <h2>予定 <button class="link" data-act="add-event">＋ 追加</button></h2>
-  <div class="toolbar"><button class="tb" data-act="ev-sort">日付順に並べる</button><button class="tb" data-act="ev-undone">未完了を上に</button><button class="tb" data-act="ev-all" data-v="0">すべて閉じる</button><button class="tb" data-act="ev-all" data-v="1">すべて開く</button></div>
-  ${ev||'<p class="hint">予定はまだありません</p>'}
+  <div class="toolbar"><button class="tb" data-act="ev-sort">日付順</button><button class="tb ${S.ui.evUndone?'on':''}" data-act="ev-undone" aria-pressed="${!!S.ui.evUndone}">未完了</button><button class="tb ${S.ui.evFuture?'on':''}" data-act="ev-future" aria-pressed="${!!S.ui.evFuture}">今後</button><button class="tb" data-act="ev-all" data-v="0">すべて閉じる</button><button class="tb" data-act="ev-all" data-v="1">すべて開く</button></div>
+  ${ev||`<p class="hint">${hiddenPast?'条件に合う予定はありません':'予定はまだありません'}</p>`}${hiddenPast&&ev?`<p class="hint">絞り込みで ${hiddenPast}件を非表示にしています</p>`:''}
   <div style="margin-top:20px;text-align:center"><button class="del" style="width:auto;padding:0 12px;font-size:12px" data-act="del-doc" data-doc="${P}">この賞与を削除</button></div>`;
 }
 
@@ -804,7 +807,7 @@ document.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.pid)ret
 function autoScroll(){if(!drag)return;if(!drag.moved){requestAnimationFrame(autoScroll);return}const y=drag.lastY,H=innerHeight,edge=90,bottomEdge=H-90-64;let v=0;if(y<edge)v=-Math.ceil((edge-y)/6);else if(y>bottomEdge)v=Math.ceil((y-bottomEdge)/6);if(v){scrollBy(0,v);dragUpdate()}requestAnimationFrame(autoScroll)}
 function endDrag(e){if(!drag||(e&&e.pointerId!==drag.pid))return;const {el,kind,list,from,to}=drag;drag=null;
   list.forEach(x=>{x.style.transform='';x.style.transition=''});el.classList.remove('dragging');document.body.classList.remove('is-dragging');
-  if(to!==from){const id=S.ui.bonus,n=kind==='event'?S.bonus[id].events.length:(S.months[S.ui.month].debits||[]).length;const idx=[...Array(n).keys()];idx.splice(from,1);idx.splice(to,0,from);if(kind==='event')reorderEvents(id,idx);else reorderDebits(idx)}}
+  if(to!==from){const id=S.ui.bonus,n=kind==='event'?S.bonus[id].events.length:(S.months[S.ui.month].debits||[]).length;const fi=+list[from].dataset[kind==='event'?'idx':'didx'],ti=+list[to].dataset[kind==='event'?'idx':'didx'];const idx=[...Array(n).keys()];idx.splice(fi,1);idx.splice(ti,0,fi);if(kind==='event')reorderEvents(id,idx);else reorderDebits(idx)}}
 document.addEventListener('pointerup',endDrag);document.addEventListener('pointercancel',endDrag);
 let armed=null;
 document.addEventListener('click',e=>{
@@ -830,7 +833,8 @@ document.addEventListener('click',e=>{
      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kakeibo-data-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);break}
    case 'tab':{const prev=S.ui.setup?null:S.ui.tab;(S.ui.scroll=S.ui.scroll||{});if(prev)S.ui.scroll[prev]=window.scrollY;if(getCfg()&&S.loaded.months)S.ui.setup=false;S.ui.tab=b.dataset.v;S.ui.sheet=null;try{localStorage.setItem('kk.tab',S.ui.tab)}catch(_){};render(true);window.scrollTo(0,S.ui.scroll[S.ui.tab]||0);break}
    case 'ev-sort':{const id=S.ui.bonus,ev=S.bonus[id].events;const idx=ev.map((e,i)=>i).sort((a,c)=>{const da=ev[a].date||'\uffff',dc=ev[c].date||'\uffff';return da<dc?-1:da>dc?1:a-c});reorderEvents(id,idx);toast('日付順に並べました');break}
-   case 'ev-undone':{const id=S.ui.bonus,ev=S.bonus[id].events;const fin=e=>{const its=e.items||[];return its.length>0&&its.every(x=>x.done)?1:0};const idx=ev.map((e,i)=>i).sort((a,c)=>fin(ev[a])-fin(ev[c])||a-c);reorderEvents(id,idx);toast('未完了を上に並べました');break}
+   case 'ev-undone':S.ui.evUndone=!S.ui.evUndone;render(true);break;
+   case 'ev-future':S.ui.evFuture=!S.ui.evFuture;render(true);break;
    case 'clear-end':{const bo=S.bonus[S.ui.bonus];delete bo.events[+b.dataset.ev].dateEnd;save('bonus/'+S.ui.bonus);render(true);break}
    case 'blabel-edit':S.ui.open.bLabelEdit=true;render(true);setTimeout(()=>{const i=$('#b-label-top');if(i){i.focus();i.select()}},30);break;
    case 'label-edit':S.ui.open.labelEdit=true;render(true);setTimeout(()=>{const i=$('#m-label-top');if(i){i.focus();i.select()}},30);break;

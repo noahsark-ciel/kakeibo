@@ -727,7 +727,7 @@ function viewSheet(){
    <div style="display:flex;justify-content:space-between;align-items:center"><h3>支出を追加</h3><button type="button" class="link" data-act="close-sheet">閉じる</button></div>
    <div class="pick" role="group" aria-label="封筒">${envs.map(({e,i})=>`<button type="button" data-act="pick-env" data-env="${i}" aria-pressed="${s.env===i}">${esc(e.name)}</button>`).join('')}<button type="button" data-act="pick-env" data-env="-1" aria-pressed="${s.env===-1}">予算外</button></div>
    <div class="box"><input id="q-amt" class="num" inputmode="decimal" placeholder="金額" autocomplete="off" style="text-align:left"></div>
-   <div class="pick acc" role="group" aria-label="引落元の口座"><span class="hint" style="width:100%;margin:0">引落元（必須）</span>${accBtns('',s.acc,'pick-acc')}</div>
+   <div class="pick acc" role="group" aria-label="引落元の口座"><span class="hint" style="width:100%;margin:0">引落元</span>${accBtns('',s.acc,'pick-acc')}</div>
    <div class="box"><input id="q-name" placeholder="品目（例：スギ薬局）" autocomplete="off"></div>
    <button class="btn solid" style="padding:14px" type="submit">${esc(S.months[id].label)} の ${esc(s.env===-1?'予算外':m.envelopes[s.env]?.name||'')} に追加</button>
   </div></form>`;
@@ -893,8 +893,8 @@ document.addEventListener('click',e=>{
    case 'add-account':if(!S.one.assets)S.one.assets={accounts:[]};S.one.assets.accounts.push({n:'口座',a:0});save('one/assets');render(true);break;
    case 'quick':{const m=cur();if(!m)break;let i=b.dataset.env!=null?+b.dataset.env:(S.ui.lastEnv??(m.envelopes||[]).findIndex(x=>!x.balanceMode));if(m.envelopes[i]?.balanceMode)i=(m.envelopes||[]).findIndex(x=>!x.balanceMode);S.ui.sheet={env:i,acc:accById(S.ui.lastAcc)?S.ui.lastAcc:''};render(true);setTimeout(()=>$('#q-amt')?.focus(),50);break}
    case 'pick-env':S.ui.sheet.env=+b.dataset.env;document.querySelectorAll('.pick button').forEach(x=>x.setAttribute('aria-pressed',x===b));const sb=$('#quick-form button[type=submit]');if(sb)sb.textContent=`${cur().label} の ${(S.ui.sheet.env===-1?'予算外':cur().envelopes[S.ui.sheet.env].name)} に追加`;break;
-   case 'pick-acc':S.ui.sheet.acc=b.dataset.acc;document.querySelectorAll('.pick.acc button').forEach(x=>x.setAttribute('aria-pressed',x===b));break;
-   case 'set-acc':{const doc=docOf(P),key=b.dataset.key,mm=/^(.*)[.]acc$/.exec(key);if(!doc||!mm)break;setIn(doc,key,b.dataset.acc);const it=getIn(doc,mm[1]);if(it)syncAcc(it,P.startsWith('bonus/')||/^debits[.][0-9]+$/.test(mm[1]));save(P);render(true);break}
+   case 'pick-acc':{const on=S.ui.sheet.acc!==b.dataset.acc;S.ui.sheet.acc=on?b.dataset.acc:'';b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',on&&x===b));break}
+   case 'set-acc':{const doc=docOf(P),key=b.dataset.key,mm=/^(.*)[.]acc$/.exec(key);if(!doc||!mm)break;setIn(doc,key,getIn(doc,key)===b.dataset.acc?'':b.dataset.acc);const it=getIn(doc,mm[1]);if(it)syncAcc(it,P.startsWith('bonus/')||/^debits[.][0-9]+$/.test(mm[1]));save(P);render(true);break}
    case 'transfer-open':ensureAccIds();S.ui.transfer={from:'',to:''};render(true);setTimeout(()=>$('#t-amt')?.focus(),50);break;
    case 'transfer-close':S.ui.transfer=null;render(true);break;
    case 'pick-tfrom':case 'pick-tto':{const k=a==='pick-tfrom'?'from':'to';S.ui.transfer[k]=b.dataset.acc;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));break}
@@ -934,7 +934,7 @@ document.addEventListener('submit',e=>{
   const amt=evalAmount($('#q-amt').value),name=$('#q-name').value.trim();
   if(!amt){toast('金額を入れてください');$('#q-amt').focus();return}
   const m=S.months[S.ui.month],ex=S.ui.sheet.env===-1,env=ex?{name:'予算外'}:m.envelopes[S.ui.sheet.env];
-  const acc=S.ui.sheet.acc;if(!acc){toast('引落元の口座を選んでください');return}
+  const acc=S.ui.sheet.acc||'';
   const item={n:name||'支出',a:amt,acc};
   if(ex){m.extras=m.extras||[];m.extras.push(item)}else{env.items=env.items||[];env.items.push(item)}
   syncAcc(item);S.ui.lastAcc=acc;S.ui.lastEnv=S.ui.sheet.env;

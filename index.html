@@ -553,7 +553,7 @@ function viewAssets(){
   <h2>資産 <button class="link" data-act="open" data-k="accEdit">${S.ui.open.accEdit?'完了':'編集'}</button></h2>
   <div class="panel">${accs.map((a,i)=>S.ui.open.accEdit?`<div class="item" style="grid-template-columns:1fr 130px 28px">${txtIn(P,`accounts.${i}.n`,a.n,'aria-label="名前"')}${numIn(P,`accounts.${i}.a`,a.a,'aria-label="金額"')}${delBtn(P,'accounts',i)}</div>`:`<div class="kv"><label for="acc${i}">${esc(a.n)}</label>${numIn(P,`accounts.${i}.a`,a.a,`id="acc${i}" style="font-size:18px"`)}</div>`).join('')}
     <div class="kv"><label style="font-weight:700;color:var(--ink)">合計</label><span class="num" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${yen(c.assets)}</span></div></div>
-  ${S.ui.open.accEdit?`<div style="margin-top:8px;text-align:right"><button class="link" data-act="add-account">＋ 口座を追加</button></div>`:''}
+  <div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center"><button class="btn" data-act="transfer-open">口座間を移動</button>${S.ui.open.accEdit?`<button class="link" data-act="add-account">＋ 口座を追加</button>`:''}</div>
   <p class="foot-note">「今後支払い予定」は、いちばん新しい月（${esc(m.label||ids[0])}）の予算と引落しで計算しています。</p>
   ${viewSavings()}
   <div style="margin-top:28px;display:flex;justify-content:space-between;align-items:center"><span class="foot-note" style="margin:0">保存先：Googleスプレッドシート（<span id="sync">${esc(syncState||'—')}</span>）</span><button class="link" data-act="setup-open">接続設定</button></div>`;
@@ -705,6 +705,17 @@ function viewSheet(){
   </div></form>`;
 }
 
+function viewTransfer(){
+  const t=S.ui.transfer;if(!t)return '';ensureAccIds();
+  return `<div class="sheet-bg" data-act="transfer-close"></div>
+  <form class="sheet" id="transfer-form" aria-label="口座間を移動"><div class="in">
+   <div style="display:flex;justify-content:space-between;align-items:center"><h3>口座間を移動</h3><button type="button" class="link" data-act="transfer-close">閉じる</button></div>
+   <div class="pick acc" role="group" aria-label="移動元の口座"><span class="hint" style="width:100%;margin:0">移動元</span>${accBtns('',t.from,'pick-tfrom')}</div>
+   <div class="pick acc" role="group" aria-label="移動先の口座"><span class="hint" style="width:100%;margin:0">移動先</span>${accBtns('',t.to,'pick-tto')}</div>
+   <div class="box"><input id="t-amt" class="num" inputmode="decimal" placeholder="金額" autocomplete="off" style="text-align:left"></div>
+   <button class="btn solid" style="padding:14px" type="submit">移動する</button>
+  </div></form>`;
+}
 function viewConfirm(){const c=S.ui.confirm;if(!c)return '';return `<div class="sheet-bg" data-act="confirm-cancel"></div><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dlg-msg"><p id="dlg-msg">${esc(c.msg)}</p><div class="dlg-btns"><button class="btn ghost" data-act="confirm-cancel">キャンセル</button><button class="btn danger" data-act="confirm-ok" id="dlg-ok">削除</button></div></div>`}
 /* ---------- render ---------- */
 function isEditing(){const a=document.activeElement;return a&&a.matches&&a.matches('#app input,#app select,#layer input')}
@@ -730,7 +741,7 @@ function render(force){
   $('#tabs').innerHTML=TABS.map(([k,l,ic])=>k===S.ui.tab?`<button class="tab-center" data-act="tab" data-v="${k}" ${S.ui.tab===k?'aria-current="page"':''}><span class="orb"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span class="orb-l">${l}</span></span></button>`:`<button data-act="tab" data-v="${k}" ${S.ui.tab===k?'aria-current="page"':''}><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg>${l}</button>`).join('');
   if(all&&(!S.ui.month||!S.months[S.ui.month]))S.ui.month=monthIds()[0]||null;
   const showFab=all&&!S.ui.setup&&S.months[S.ui.month];
-  $('#layer').innerHTML=(showFab&&!S.ui.sheet?`<button class="fab" data-act="quick"><span aria-hidden="true" style="font-size:20px;line-height:1">＋</span>支出</button>`:'')+viewSheet()+viewConfirm();
+  $('#layer').innerHTML=(showFab&&!S.ui.sheet&&!S.ui.transfer?`<button class="fab" data-act="quick"><span aria-hidden="true" style="font-size:20px;line-height:1">＋</span>支出</button>`:'')+viewSheet()+viewTransfer()+viewConfirm();
   window.scrollTo(0,y);
 }
 document.addEventListener('focusout',e=>{if(e.target.id==='m-label-top'||e.target.id==='b-label-top'){S.ui.open.labelEdit=false;S.ui.open.bLabelEdit=false;setTimeout(()=>render(true),0);return}setTimeout(()=>{if(deferred&&!isEditing())render()},0)});
@@ -831,7 +842,7 @@ document.addEventListener('click',e=>{
    case 'setup-export':{const docs={};['months','bonus','one'].forEach(c=>Object.entries(S[c]).forEach(([id,v])=>{docs[c+'/'+id]=v}));
      const blob=new Blob([JSON.stringify({format:'kakeibo-backup-1',exportedAt:new Date().toISOString(),docs},null,1)],{type:'application/json'});
      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kakeibo-data-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);break}
-   case 'tab':{const prev=S.ui.setup?null:S.ui.tab;(S.ui.scroll=S.ui.scroll||{});if(prev)S.ui.scroll[prev]=window.scrollY;if(getCfg()&&S.loaded.months)S.ui.setup=false;S.ui.tab=b.dataset.v;S.ui.sheet=null;try{localStorage.setItem('kk.tab',S.ui.tab)}catch(_){};render(true);window.scrollTo(0,S.ui.scroll[S.ui.tab]||0);break}
+   case 'tab':{const prev=S.ui.setup?null:S.ui.tab;(S.ui.scroll=S.ui.scroll||{});if(prev)S.ui.scroll[prev]=window.scrollY;if(getCfg()&&S.loaded.months)S.ui.setup=false;S.ui.tab=b.dataset.v;S.ui.sheet=null;S.ui.transfer=null;try{localStorage.setItem('kk.tab',S.ui.tab)}catch(_){};render(true);window.scrollTo(0,S.ui.scroll[S.ui.tab]||0);break}
    case 'ev-sort':{const id=S.ui.bonus,ev=S.bonus[id].events;const idx=ev.map((e,i)=>i).sort((a,c)=>{const da=ev[a].date||'\uffff',dc=ev[c].date||'\uffff';return da<dc?-1:da>dc?1:a-c});reorderEvents(id,idx);toast('日付順に並べました');break}
    case 'ev-undone':S.ui.evUndone=!S.ui.evUndone;render(true);break;
    case 'ev-future':S.ui.evFuture=!S.ui.evFuture;render(true);break;
@@ -855,6 +866,9 @@ document.addEventListener('click',e=>{
    case 'pick-env':S.ui.sheet.env=+b.dataset.env;document.querySelectorAll('.pick button').forEach(x=>x.setAttribute('aria-pressed',x===b));const sb=$('#quick-form button[type=submit]');if(sb)sb.textContent=`${cur().label} の ${(S.ui.sheet.env===-1?'予算外':cur().envelopes[S.ui.sheet.env].name)} に追加`;break;
    case 'pick-acc':S.ui.sheet.acc=b.dataset.acc;document.querySelectorAll('.pick.acc button').forEach(x=>x.setAttribute('aria-pressed',x===b));break;
    case 'set-acc':{const doc=docOf(P),key=b.dataset.key,mm=/^(.*)[.]acc$/.exec(key);if(!doc||!mm)break;setIn(doc,key,b.dataset.acc);const it=getIn(doc,mm[1]);if(it)syncAcc(it,P.startsWith('bonus/')||/^debits[.][0-9]+$/.test(mm[1]));save(P);render(true);break}
+   case 'transfer-open':ensureAccIds();S.ui.transfer={from:'',to:''};render(true);setTimeout(()=>$('#t-amt')?.focus(),50);break;
+   case 'transfer-close':S.ui.transfer=null;render(true);break;
+   case 'pick-tfrom':case 'pick-tto':{const k=a==='pick-tfrom'?'from':'to';S.ui.transfer[k]=b.dataset.acc;b.parentElement.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));break}
    case 'close-sheet':S.ui.sheet=null;render(true);break;
    case 'new-bonus':{const prev=latestBonus();const ids=Object.keys(S.bonus);const id='b'+Date.now().toString(36);
      const pc=prev?calcBonus(prev):null;
@@ -878,6 +892,13 @@ document.addEventListener('click',e=>{
   }
 });
 document.addEventListener('submit',e=>{
+  if(e.target.id==='transfer-form'){e.preventDefault();
+    const t=S.ui.transfer,amt=evalAmount($('#t-amt').value),f=accById(t.from),g=accById(t.to);
+    if(!f||!g){toast('移動元と移動先の口座を選んでください');return}
+    if(f===g){toast('移動元と移動先が同じです');return}
+    if(!amt||amt<0){toast('金額を入れてください');$('#t-amt').focus();return}
+    f.a=n(f.a)-amt;g.a=n(g.a)+amt;save('one/assets');S.ui.transfer=null;document.activeElement?.blur();
+    toast(`${f.n} から ${g.n} へ ${yen(amt)}円 移動しました`);render(true);return}
   if(e.target.id!=='quick-form')return;e.preventDefault();
   const amt=evalAmount($('#q-amt').value),name=$('#q-name').value.trim();
   if(!amt){toast('金額を入れてください');$('#q-amt').focus();return}

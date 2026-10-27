@@ -279,6 +279,8 @@ const S={months:{},bonus:{},one:{},loaded:{months:false,bonus:false,one:false},
   ui:{tab:'month',month:null,bonus:null,open:{},sheet:null,cardsShowDone:false},db:null,err:null};
 S.ui.evOpen={};
 try{const t=localStorage.getItem('kk.tab');if(t)S.ui.tab=t==='savings'?'assets':t==='fixed'?'funds':t;S.ui.evOpen=JSON.parse(localStorage.getItem('kk.ev')||'{}')||{}}catch(e){}
+try{S.ui.totMonth=localStorage.getItem('kk.totMonth')||undefined;S.ui.totBonus=localStorage.getItem('kk.totBonus')||undefined}catch(e){}
+function saveTot(){try{localStorage.setItem('kk.totMonth',S.ui.totMonth||'');localStorage.setItem('kk.totBonus',S.ui.totBonus||'')}catch(e){}}
 function saveEv(){try{localStorage.setItem('kk.ev',JSON.stringify(S.ui.evOpen))}catch(e){}}
 
 /* ---------- helpers ---------- */
@@ -796,8 +798,8 @@ document.addEventListener('focusout',e=>{if(e.target.id==='m-label-top'||e.targe
 document.addEventListener('change',e=>{
   const el=e.target;
   if(el.id==='sel-month'){S.ui.month=el.value;S.ui.open={};render(true);return}
-  if(el.id==='sel-tot-month'){S.ui.totMonth=el.value;render(true);return}
-  if(el.id==='sel-tot-bonus'){S.ui.totBonus=el.value;render(true);return}
+  if(el.id==='sel-tot-month'){S.ui.totMonth=el.value;saveTot();render(true);return}
+  if(el.id==='sel-tot-bonus'){S.ui.totBonus=el.value;saveTot();render(true);return}
   if(el.id==='sel-trip'){S.ui.trip=el.value;render(true);return}
   if(el.id==='sel-bonus'){S.ui.bonus=el.value;render(true);return}
   const path=el.dataset.doc,key=el.dataset.key;if(!path||!key)return;

@@ -228,7 +228,7 @@ div.ev-row[data-act]{cursor:pointer}
 
 .fab{position:fixed;z-index:21;right:max(16px,calc(env(safe-area-inset-right,0px) + 16px));bottom:calc(var(--tabh) + 16px + env(safe-area-inset-bottom,0px));background:var(--accent);color:var(--card);border-radius:999px;padding:14px 20px;font-weight:700;box-shadow:0 6px 20px rgba(0,0,0,.18);display:flex;align-items:center;gap:6px}
 .sheet-bg{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.35)}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;background:var(--card);border-radius:20px 20px 0 0;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet{position:fixed;left:0;right:0;bottom:var(--kb,0px);max-height:calc(var(--vvh,100dvh) - 12px);overflow-y:auto;overscroll-behavior:contain;z-index:31;background:var(--card);border-radius:20px 20px 0 0;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .sheet .in{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
 .sheet h3{margin:0;font-size:17px}
 .pick{display:flex;flex-wrap:wrap;gap:8px}
@@ -281,6 +281,10 @@ S.ui.evOpen={};
 try{const t=localStorage.getItem('kk.tab');if(t)S.ui.tab=t==='savings'?'assets':t==='fixed'?'funds':t;S.ui.evOpen=JSON.parse(localStorage.getItem('kk.ev')||'{}')||{}}catch(e){}
 try{S.ui.totMonth=localStorage.getItem('kk.totMonth')||undefined;S.ui.totBonus=localStorage.getItem('kk.totBonus')||undefined}catch(e){}
 function saveTot(){try{localStorage.setItem('kk.totMonth',S.ui.totMonth||'');localStorage.setItem('kk.totBonus',S.ui.totBonus||'')}catch(e){}}
+(function(){const v=window.visualViewport;if(!v)return;const r=document.documentElement.style;let t;
+function fit(){const kb=Math.max(0,window.innerHeight-v.height-v.offsetTop);r.setProperty('--kb',kb+'px');r.setProperty('--vvh',v.height+'px');
+const e=document.activeElement;if(kb>0&&e&&e.closest&&e.closest('.sheet')){clearTimeout(t);t=setTimeout(()=>e.scrollIntoView({block:'nearest'}),50)}}
+v.addEventListener('resize',fit);v.addEventListener('scroll',fit);fit()})();
 function saveEv(){try{localStorage.setItem('kk.ev',JSON.stringify(S.ui.evOpen))}catch(e){}}
 
 /* ---------- helpers ---------- */

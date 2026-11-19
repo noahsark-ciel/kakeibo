@@ -203,7 +203,9 @@ div.ev-row[data-act]{cursor:pointer}
 .event.alldone{opacity:.62}
 .ev-toggle{width:100%;display:grid;grid-template-columns:16px auto 1fr auto;gap:10px;align-items:center;padding:10px 0;text-align:left}
 .ev-toggle.open{padding:4px 0 2px;border-bottom:0}
-.ex-toggle{display:inline-flex;align-items:center;gap:4px;background:none;border:0;padding:4px 0;font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer}
+.ex-toggle{display:inline-flex;align-items:baseline;gap:4px;background:none;border:0;padding:4px 0;font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer}
+.ex-toggle .chev{align-self:center}
+.ex-sum{font-size:12px;font-weight:500;letter-spacing:0;margin-left:4px}
 .chev{color:var(--sub);width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;transform-origin:50% 50%;transition:transform .15s}
 .chev svg{display:block}
 .ev-toggle.open .chev{transform:rotate(90deg)}
@@ -479,7 +481,8 @@ function viewMonth(){
   try{localStorage.setItem('kk.month',S.ui.month||'')}catch(e){}
   const id=S.ui.month,m=S.months[id],P='months/'+id,c=calcMonth(m);
   ensureAccIds();
-  const exOpen=S.ui.evOpen.extras!==false;
+  const secOpen=k=>S.ui.evOpen[k]!==false;
+  const secH=(k,title,sum,right='')=>{const o=secOpen(k);return `<h2><button class="ex-toggle" data-act="ev" data-k="${k}" aria-expanded="${o}"><span class="chev" aria-hidden="true" style="${o?'transform:rotate(90deg)':''}"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>${title}${o?'':` <span class="ex-sum num">${sum}</span>`}</button>${right?` <span>${right}</span>`:''}</h2>`};
   const envs=m.envelopes||[];
   const envHtml=envs.map((e,i)=>{
     const r=c.E[i],open=S.ui.open['env'+i];
@@ -522,18 +525,18 @@ function viewMonth(){
     <div class="kv"><label>収支<br><span class="meta" style="font-size:11px">給与 − 今月割当 − 予算外の支出</span></label><span class="num ${c.balance<0?'neg':'pos'}" style="text-align:right;font-size:18px;font-weight:500;padding:6px 0">${c.balance>=0?'+':''}${yen(c.balance)}</span></div>
   </div>
 
-  <h2>予算</h2>
-  <div class="panel">${envHtml}</div>
+  ${secH('budget','予算',`${envs.length}件`)}
+  ${secOpen('budget')?`<div class="panel">${envHtml}</div>`:''}
 
-  <h2>積立 <button class="link" data-act="tab" data-v="funds">積立を見る ›</button></h2>
-  <div class="panel">${(m.tsumitate||[]).map((t,i)=>{const f=(S.one.funds?.funds||[]).find(x=>x.id===t.fund);return `<div class="kv"><label for="ts${i}"><span style="color:var(--ink);font-weight:700">${esc(t.name)}</span><br><span class="meta num" style="font-size:12px">残高 ${f?yen(fundCalc(f).balance):'—'}</span></label>${numIn(P,`tsumitate.${i}.amount`,t.amount,`id="ts${i}" style="font-size:18px"`)}</div>`}).join('')||'<p class="hint">積立はありません</p>'}</div>
+  ${secH('tsumi','積立',`${(m.tsumitate||[]).length}件`,'<button class="link" data-act="tab" data-v="funds">積立を見る ›</button>')}
+  ${secOpen('tsumi')?`<div class="panel">${(m.tsumitate||[]).map((t,i)=>{const f=(S.one.funds?.funds||[]).find(x=>x.id===t.fund);return `<div class="kv"><label for="ts${i}"><span style="color:var(--ink);font-weight:700">${esc(t.name)}</span><br><span class="meta num" style="font-size:12px">残高 ${f?yen(fundCalc(f).balance):'—'}</span></label>${numIn(P,`tsumitate.${i}.amount`,t.amount,`id="ts${i}" style="font-size:18px"`)}</div>`}).join('')||'<p class="hint">積立はありません</p>'}</div>`:''}
 
-  <h2>引落・振込 <button class="link" data-act="open" data-k="debEdit">${S.ui.open.debEdit?'完了':'編集'}</button></h2>
-  <div class="panel">${debits||'<p class="hint">引落しはありません</p>'}</div>
-  ${S.ui.open.debEdit?`<div style="margin-top:8px;text-align:right"><button class="link" data-act="add-debit">＋ 引落しを追加</button></div>`:''}
+  ${secH('debit','引落・振込',`${(m.debits||[]).length}件`,`<button class="link" data-act="open" data-k="debEdit">${S.ui.open.debEdit?'完了':'編集'}</button>`)}
+  ${secOpen('debit')?`<div class="panel">${debits||'<p class="hint">引落しはありません</p>'}</div>
+  ${S.ui.open.debEdit?`<div style="margin-top:8px;text-align:right"><button class="link" data-act="add-debit">＋ 引落しを追加</button></div>`:''}`:''}
 
-  <h2><button class="ex-toggle" data-act="ev" data-k="extras" aria-expanded="${exOpen}"><span class="chev" aria-hidden="true" style="${exOpen?'transform:rotate(90deg)':''}"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>予算外の支出${exOpen?'':` <span class="num" style="font-weight:500;letter-spacing:0">${(m.extras||[]).length}件 ${yen(c.extraSum)}</span>`}</button> <button class="link" data-act="quick" data-env="-1">＋ 追加</button></h2>
-  ${exOpen?`<div class="panel">${(m.extras||[]).map((it,j)=>`<div class="item">${txtIn(P,`extras.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`extras.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`extras`,j)}${accSel(P,`extras.${j}.acc`,it.acc)}</div>`).join('')||'<p class="hint">予算外の支出はありません</p>'}</div>`:''}
+  ${secH('extras','予算外の支出',`${(m.extras||[]).length}件 ${yen(c.extraSum)}`,'<button class="link" data-act="quick" data-env="-1">＋ 追加</button>')}
+  ${secOpen('extras')?`<div class="panel">${(m.extras||[]).map((it,j)=>`<div class="item">${txtIn(P,`extras.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`extras.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`extras`,j)}${accSel(P,`extras.${j}.acc`,it.acc)}</div>`).join('')||'<p class="hint">予算外の支出はありません</p>'}</div>`:''}
 
 
   <div style="margin-top:20px;text-align:center"><button class="del" style="width:auto;padding:0 12px;font-size:12px" data-act="del-doc" data-doc="${P}">この月を削除</button></div>`;

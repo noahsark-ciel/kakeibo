@@ -203,6 +203,7 @@ div.ev-row[data-act]{cursor:pointer}
 .event.alldone{opacity:.62}
 .ev-toggle{width:100%;display:grid;grid-template-columns:16px auto 1fr auto;gap:10px;align-items:center;padding:10px 0;text-align:left}
 .ev-toggle.open{padding:4px 0 2px;border-bottom:0}
+.ex-toggle{display:inline-flex;align-items:center;gap:4px;background:none;border:0;padding:4px 0;font:inherit;color:inherit;letter-spacing:inherit;cursor:pointer}
 .chev{color:var(--sub);width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;transform-origin:50% 50%;transition:transform .15s}
 .chev svg{display:block}
 .ev-toggle.open .chev{transform:rotate(90deg)}
@@ -279,6 +280,7 @@ const S={months:{},bonus:{},one:{},loaded:{months:false,bonus:false,one:false},
   ui:{tab:'month',month:null,bonus:null,open:{},sheet:null,cardsShowDone:false},db:null,err:null};
 S.ui.evOpen={};
 try{const t=localStorage.getItem('kk.tab');if(t)S.ui.tab=t==='savings'?'assets':t==='fixed'?'funds':t;S.ui.evOpen=JSON.parse(localStorage.getItem('kk.ev')||'{}')||{}}catch(e){}
+try{S.ui.bonus=localStorage.getItem('kk.bonus')||undefined}catch(e){}
 try{S.ui.totMonth=localStorage.getItem('kk.totMonth')||undefined;S.ui.totBonus=localStorage.getItem('kk.totBonus')||undefined}catch(e){}
 function saveTot(){try{localStorage.setItem('kk.totMonth',S.ui.totMonth||'');localStorage.setItem('kk.totBonus',S.ui.totBonus||'')}catch(e){}}
 (function(){const v=window.visualViewport;if(!v)return;const r=document.documentElement.style;let t;
@@ -475,6 +477,7 @@ function viewMonth(){
   if(!S.ui.month||!S.months[S.ui.month])S.ui.month=ids[0];
   const id=S.ui.month,m=S.months[id],P='months/'+id,c=calcMonth(m);
   ensureAccIds();
+  const exOpen=S.ui.evOpen.extras!==false;
   const envs=m.envelopes||[];
   const envHtml=envs.map((e,i)=>{
     const r=c.E[i],open=S.ui.open['env'+i];
@@ -520,8 +523,8 @@ function viewMonth(){
   <h2>予算</h2>
   <div class="panel">${envHtml}</div>
 
-  <h2>予算外の支出 <button class="link" data-act="quick" data-env="-1">＋ 追加</button></h2>
-  <div class="panel">${(m.extras||[]).map((it,j)=>`<div class="item">${txtIn(P,`extras.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`extras.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`extras`,j)}${accSel(P,`extras.${j}.acc`,it.acc)}</div>`).join('')||'<p class="hint">予算外の支出はありません</p>'}</div>
+  <h2><button class="ex-toggle" data-act="ev" data-k="extras" aria-expanded="${exOpen}"><span class="chev" aria-hidden="true" style="${exOpen?'transform:rotate(90deg)':''}"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>予算外の支出${exOpen?'':` <span class="num" style="font-weight:500;letter-spacing:0">${(m.extras||[]).length}件 ${yen(c.extraSum)}</span>`}</button> <button class="link" data-act="quick" data-env="-1">＋ 追加</button></h2>
+  ${exOpen?`<div class="panel">${(m.extras||[]).map((it,j)=>`<div class="item">${txtIn(P,`extras.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`extras.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`extras`,j)}${accSel(P,`extras.${j}.acc`,it.acc)}</div>`).join('')||'<p class="hint">予算外の支出はありません</p>'}</div>`:''}
 
   <h2>積立 <button class="link" data-act="tab" data-v="funds">積立を見る ›</button></h2>
   <div class="panel">${(m.tsumitate||[]).map((t,i)=>{const f=(S.one.funds?.funds||[]).find(x=>x.id===t.fund);return `<div class="kv"><label for="ts${i}"><span style="color:var(--ink);font-weight:700">${esc(t.name)}</span><br><span class="meta num" style="font-size:12px">残高 ${f?yen(fundCalc(f).balance):'—'}</span></label>${numIn(P,`tsumitate.${i}.amount`,t.amount,`id="ts${i}" style="font-size:18px"`)}</div>`}).join('')||'<p class="hint">積立はありません</p>'}</div>
@@ -590,6 +593,7 @@ function viewBonus(){
   const ids=Object.keys(S.bonus).sort().reverse();
   if(!ids.length)return `<div class="empty"><b>賞与の予算がありません</b>賞与ごとに、使う予定と支払い済みを管理できます。<div style="margin-top:16px"><button class="btn solid" data-act="new-bonus">賞与の予算を作成</button></div></div>`;
   if(!S.ui.bonus||!S.bonus[S.ui.bonus])S.ui.bonus=latestBonusId()||ids[0];
+  try{localStorage.setItem('kk.bonus',S.ui.bonus||'')}catch(e){}
   const id=S.ui.bonus,b=S.bonus[id],P='bonus/'+id,c=calcBonus(b);
   const today=new Date(Date.now()+9*3600e3).toISOString().slice(0,10);let hiddenPast=0;
   const ev=(b.events||[]).map((e,i)=>{

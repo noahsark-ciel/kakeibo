@@ -281,6 +281,7 @@ const S={months:{},bonus:{},one:{},loaded:{months:false,bonus:false,one:false},
 S.ui.evOpen={};
 try{const t=localStorage.getItem('kk.tab');if(t)S.ui.tab=t==='savings'?'assets':t==='fixed'?'funds':t;S.ui.evOpen=JSON.parse(localStorage.getItem('kk.ev')||'{}')||{}}catch(e){}
 try{S.ui.bonus=localStorage.getItem('kk.bonus')||undefined}catch(e){}
+try{S.ui.month=localStorage.getItem('kk.month')||undefined}catch(e){}
 try{S.ui.totMonth=localStorage.getItem('kk.totMonth')||undefined;S.ui.totBonus=localStorage.getItem('kk.totBonus')||undefined}catch(e){}
 function saveTot(){try{localStorage.setItem('kk.totMonth',S.ui.totMonth||'');localStorage.setItem('kk.totBonus',S.ui.totBonus||'')}catch(e){}}
 (function(){const v=window.visualViewport;if(!v)return;const r=document.documentElement.style;let t;
@@ -475,6 +476,7 @@ function viewMonth(){
   const ids=monthIds();
   if(!ids.length)return `<div class="empty"><b>まだ月のデータがありません</b>最初の月を作ると、封筒ごとの予算と引落しを管理できます。<div style="margin-top:16px"><button class="btn solid" data-act="first-month">最初の月を作成</button></div></div>`;
   if(!S.ui.month||!S.months[S.ui.month])S.ui.month=ids[0];
+  try{localStorage.setItem('kk.month',S.ui.month||'')}catch(e){}
   const id=S.ui.month,m=S.months[id],P='months/'+id,c=calcMonth(m);
   ensureAccIds();
   const exOpen=S.ui.evOpen.extras!==false;

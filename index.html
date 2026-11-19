@@ -525,15 +525,15 @@ function viewMonth(){
   <h2>予算</h2>
   <div class="panel">${envHtml}</div>
 
-  <h2><button class="ex-toggle" data-act="ev" data-k="extras" aria-expanded="${exOpen}"><span class="chev" aria-hidden="true" style="${exOpen?'transform:rotate(90deg)':''}"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>予算外の支出${exOpen?'':` <span class="num" style="font-weight:500;letter-spacing:0">${(m.extras||[]).length}件 ${yen(c.extraSum)}</span>`}</button> <button class="link" data-act="quick" data-env="-1">＋ 追加</button></h2>
-  ${exOpen?`<div class="panel">${(m.extras||[]).map((it,j)=>`<div class="item">${txtIn(P,`extras.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`extras.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`extras`,j)}${accSel(P,`extras.${j}.acc`,it.acc)}</div>`).join('')||'<p class="hint">予算外の支出はありません</p>'}</div>`:''}
-
   <h2>積立 <button class="link" data-act="tab" data-v="funds">積立を見る ›</button></h2>
   <div class="panel">${(m.tsumitate||[]).map((t,i)=>{const f=(S.one.funds?.funds||[]).find(x=>x.id===t.fund);return `<div class="kv"><label for="ts${i}"><span style="color:var(--ink);font-weight:700">${esc(t.name)}</span><br><span class="meta num" style="font-size:12px">残高 ${f?yen(fundCalc(f).balance):'—'}</span></label>${numIn(P,`tsumitate.${i}.amount`,t.amount,`id="ts${i}" style="font-size:18px"`)}</div>`}).join('')||'<p class="hint">積立はありません</p>'}</div>
 
   <h2>引落・振込 <button class="link" data-act="open" data-k="debEdit">${S.ui.open.debEdit?'完了':'編集'}</button></h2>
   <div class="panel">${debits||'<p class="hint">引落しはありません</p>'}</div>
   ${S.ui.open.debEdit?`<div style="margin-top:8px;text-align:right"><button class="link" data-act="add-debit">＋ 引落しを追加</button></div>`:''}
+
+  <h2><button class="ex-toggle" data-act="ev" data-k="extras" aria-expanded="${exOpen}"><span class="chev" aria-hidden="true" style="${exOpen?'transform:rotate(90deg)':''}"><svg viewBox="0 0 16 16" width="16" height="16"><path d="M6 3.5l4.5 4.5L6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>予算外の支出${exOpen?'':` <span class="num" style="font-weight:500;letter-spacing:0">${(m.extras||[]).length}件 ${yen(c.extraSum)}</span>`}</button> <button class="link" data-act="quick" data-env="-1">＋ 追加</button></h2>
+  ${exOpen?`<div class="panel">${(m.extras||[]).map((it,j)=>`<div class="item">${txtIn(P,`extras.${j}.n`,it.n,'placeholder="品目" aria-label="品目"')}${numIn(P,`extras.${j}.a`,it.a,'aria-label="金額"')}${delBtn(P,`extras`,j)}${accSel(P,`extras.${j}.acc`,it.acc)}</div>`).join('')||'<p class="hint">予算外の支出はありません</p>'}</div>`:''}
 
 
   <div style="margin-top:20px;text-align:center"><button class="del" style="width:auto;padding:0 12px;font-size:12px" data-act="del-doc" data-doc="${P}">この月を削除</button></div>`;
